@@ -9,5 +9,8 @@
   },
   "dependencies": {
     "nakama-runtime": "https://github.com/heroiclabs/nakama-common"
+  },
+  "scripts": {
+    "build-module": "npx tsc"
   }
 }
