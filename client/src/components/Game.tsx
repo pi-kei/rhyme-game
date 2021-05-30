@@ -5,6 +5,7 @@ import React, { useEffect, useReducer, useRef, useState } from "react";
 import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animals } from 'unique-names-generator';
 import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
+import { OpCode, HostChangedMessageData } from "../common";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -15,9 +16,7 @@ const namesConfig: NamesConfig = {
 type PlayerInfo = {
     id: string,
     name: string,
-    avatar: string,
-    host: boolean,
-    self: boolean
+    avatar: string
 };
 
 function Game() {
@@ -32,6 +31,7 @@ function Game() {
     const [avatar, setAvatar] = useState<string>(localStorage.getItem('avatar') || '');
 
     const [players, setPlayers] = useState<PlayerInfo[]>([]);
+    const [hostId, setHostId] = useState<string>('');
 
     const clientRef = useRef<nakamajs.Client>();
     const socketRef = useRef<nakamajs.Socket>();
@@ -112,8 +112,12 @@ function Game() {
                 .then(onMatchJoined)
                 .catch(error => console.error(error));
         } else {
-            socketRef.current!.createMatch()
+            /*socketRef.current!.createMatch()
                 .then(onMatchJoined)
+                .catch(error => console.error(error));*/
+
+            clientRef.current!.rpc(sessionRef.current!, 'create_match_server_authoritative', {})
+                .then(onMatchCreated)
                 .catch(error => console.error(error));
         }
     };
@@ -148,9 +152,7 @@ function Game() {
                         newPlayers = users.users.map((user: nakamajs.User) => ({
                             id: user.id,
                             name: user.display_name,
-                            avatar: user.avatar_url,
-                            host: false,
-                            self: user.id === sessionRef.current!.user_id
+                            avatar: user.avatar_url
                         } as PlayerInfo));
                     }
                     setPlayers(
@@ -173,6 +175,11 @@ function Game() {
 
     const onMatchData = (matchData: nakamajs.MatchData) => {
         console.info("Received match data:", matchData);
+
+        if (matchData.op_code === OpCode.HOST_CHANGED) {
+            const messageData: HostChangedMessageData = matchData.data;
+            setHostId(messageData.userId);
+        }
     };
 
     const onMatchJoined = (match: nakamajs.Match) => {
@@ -190,15 +197,23 @@ function Game() {
                         newPlayers = users.users.map((user: nakamajs.User) => ({
                             id: user.id,
                             name: user.display_name,
-                            avatar: user.avatar_url,
-                            host: false,
-                            self: user.id === sessionRef.current!.user_id
+                            avatar: user.avatar_url
                         } as PlayerInfo));
                     }
                     setPlayers(newPlayers);
                 })
                 .catch(error => console.error(error));
         }
+    };
+
+    const onMatchCreated = (response: nakamajs.RpcResponse) => {
+        console.log("onMatchCreated", response);
+
+        const payload = response.payload as {match_id: string};
+
+        socketRef.current!.joinMatch(payload.match_id)
+            .then(onMatchJoined)
+            .catch(error => console.error(error));
     };
 
     useEffect(() => {
@@ -229,7 +244,7 @@ function Game() {
         );
     } else if (currentState === 'lobby') {
         return (
-            <Lobby players={players} viewAsHost={false} />
+            <Lobby players={players} hostId={hostId} selfId={sessionRef.current?.user_id || ''} />
         );
     }
 
@@ -299,10 +314,11 @@ function Login({
 
 interface LobbyProps {
     players: PlayerInfo[],
-    viewAsHost: boolean
+    hostId: string,
+    selfId: string
 }
 
-function Lobby({players}: LobbyProps) {
+function Lobby({players, hostId, selfId}: LobbyProps) {
     return (
         <Container>
             <Grid columns={2} divided>
@@ -315,17 +331,19 @@ function Lobby({players}: LobbyProps) {
                                     <List.Header>
                                         {p.name}
                                         {' '}
-                                        {(p.self || p.host) && (
+                                        {(p.id === selfId || p.id === hostId) && (
                                             <Icon.Group>
-                                                {p.host && (
+                                                {p.id === hostId && (
                                                     <Icon name="certificate" color='yellow' />
                                                 )}
-                                                {p.self && (
+                                                {p.id === selfId && (
                                                     <Icon name="check" color='grey' />
                                                 )}
                                             </Icon.Group>
                                         )}
-                                        <Button icon='ban' disabled={p.self} basic></Button>
+                                        {selfId && hostId && selfId === hostId && (
+                                            <Button icon='ban' disabled={p.id === selfId} basic></Button>
+                                        )}
                                     </List.Header>
                                 </List.Content>
                             </List.Item>
@@ -333,7 +351,7 @@ function Lobby({players}: LobbyProps) {
                     </List>
                 </Grid.Column>
                 <Grid.Column>
-                    <Button>
+                    <Button disabled={players.length < 2}>
                         Start
                         <Icon name='arrow right' />
                     </Button>

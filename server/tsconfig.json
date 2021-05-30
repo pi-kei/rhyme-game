@@ -1,6 +1,7 @@
 {
   "files": [
-    "./src/main.ts"
+    "./src/main.ts",
+    "./src/common.ts"
   ],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig.json to read more about this file */
