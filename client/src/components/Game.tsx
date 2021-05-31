@@ -36,6 +36,7 @@ function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[]) {
     );
 }
 
+const storage: Storage = process.env.NODE_ENV !== 'production' && process.env.REACT_APP_USE_SESSION_STORAGE === 'true' ? sessionStorage : localStorage;
 const nakamaHelper: NakamaHelper = new NakamaHelper();
 
 function Game() {
@@ -47,9 +48,9 @@ function Game() {
     const [hostId, setHostId] = useState<string>('');
 
     const onLogin = (customId: string, userName: string, avatar: string) => {
-        nakamaHelper.auth(customId, localStorage.getItem('nakamaToken'))
+        nakamaHelper.auth(customId, storage.getItem('nakamaToken'))
             .then((jwt: string) => {
-                localStorage.setItem('nakamaToken', jwt);
+                storage.setItem('nakamaToken', jwt);
                 return nakamaHelper.updateAccount(userName, avatar);
             })
             .then(() => nakamaHelper.joinOrCreateMatch(gameId))
@@ -73,6 +74,8 @@ function Game() {
 
     const onDisconnect = (event: Event) => {
         console.info("Disconnected from the server. Event:", event);
+
+        setCurrentState('login');
     };
 
     const onError = (event: Event) => {
@@ -177,33 +180,33 @@ interface LoginProps {
 function Login({
     onLogin
 }: LoginProps) {
-    const [defaultUserName, setDefaultUserName] = useState<string>(localStorage.getItem('username') || '');
+    const [defaultUserName, setDefaultUserName] = useState<string>(storage.getItem('username') || '');
     const [userName, setUserName] = useState<string>(defaultUserName);
-    const [customId, setCustomId] = useState<string>(localStorage.getItem('uuid') || '');
-    const [avatar, setAvatar] = useState<string>(localStorage.getItem('avatar') || '');
+    const [customId, setCustomId] = useState<string>(storage.getItem('uuid') || '');
+    const [avatar, setAvatar] = useState<string>(storage.getItem('avatar') || '');
 
     const randomCustomId = () => {
         const newCustomId = nanoid();
-        localStorage.setItem('uuid', newCustomId);
+        storage.setItem('uuid', newCustomId);
         setCustomId(newCustomId);
     };
     
     const randomUserName = () => {
         const newUserName = uniqueNamesGenerator(namesConfig);
-        localStorage.setItem('username', newUserName);
+        storage.setItem('username', newUserName);
         setDefaultUserName(newUserName);
     };
 
     const randomAvatar = () => {
         //const newAvatar = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(multiavatar(nanoid()))))}`;
         const newAvatar = `https://api.multiavatar.com/${nanoid()}.svg`;
-        localStorage.setItem('avatar', newAvatar);
+        storage.setItem('avatar', newAvatar);
         setAvatar(newAvatar);
     };
 
     const onUserNameChange = (event: React.ChangeEvent, data: InputOnChangeData) => {
         const newUserName = data.value.trim();
-        localStorage.setItem('username', newUserName || defaultUserName);
+        storage.setItem('username', newUserName || defaultUserName);
         setUserName(newUserName);
     };
 
