@@ -6,7 +6,7 @@ import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animal
 import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
 import { OpCode, HostChangedMessageData, KickPlayerMessageData } from "../common";
-import Nakama from "../nakama";
+import NakamaHelper from "../nakamaHelper";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -36,7 +36,7 @@ function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[]) {
     );
 }
 
-const nakama: Nakama = new Nakama();
+const nakamaHelper: NakamaHelper = new NakamaHelper();
 
 function Game() {
     const { id: gameId } = useParams<{id: string | undefined}>();
@@ -47,12 +47,12 @@ function Game() {
     const [hostId, setHostId] = useState<string>('');
 
     const onLogin = (customId: string, userName: string, avatar: string) => {
-        nakama.auth(customId, localStorage.getItem('nakamaToken'))
+        nakamaHelper.auth(customId, localStorage.getItem('nakamaToken'))
             .then((jwt: string) => {
                 localStorage.setItem('nakamaToken', jwt);
-                return nakama.updateAccount(userName, avatar);
+                return nakamaHelper.updateAccount(userName, avatar);
             })
-            .then(() => nakama.joinOrCreateMatch(gameId))
+            .then(() => nakamaHelper.joinOrCreateMatch(gameId))
             .then(onMatchJoined)
             .catch((error) => {
                 if (error instanceof Error) {
@@ -88,7 +88,7 @@ function Game() {
         if (leaves && leaves.length && !(joins && joins.length)) {
             setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves));
         } else if (joins && joins.length) {
-            nakama.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
+            nakamaHelper.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
                 .then((users: nakamajs.User[]) => {
                     setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves) : prevPlayers).concat(toPlayerInfo(users)));
                 })
@@ -114,7 +114,7 @@ function Game() {
 
         const presences = match.presences;
         if (presences && presences.length) {
-            nakama.getUsers(presences.map((p: nakamajs.Presence) => p.user_id))
+            nakamaHelper.getUsers(presences.map((p: nakamajs.Presence) => p.user_id))
                 .then((users: nakamajs.User[]) => {
                     setPlayers(toPlayerInfo(users));
                 })
@@ -123,7 +123,7 @@ function Game() {
     };
 
     const onKick = (userId: string) => {
-        nakama.sendMatchMessage(OpCode.KICK_PLAYER, {userId} as KickPlayerMessageData)
+        nakamaHelper.sendMatchMessage(OpCode.KICK_PLAYER, {userId} as KickPlayerMessageData)
             .catch(error => console.error(error));
     };
 
@@ -131,21 +131,21 @@ function Game() {
         setCurrentState('login');
         setPlayers([]);
         setHostId('');
-        nakama.leaveCurrentMatch()
+        nakamaHelper.leaveCurrentMatch()
             .catch(error => console.error(error));
     };
 
     useEffect(() => {
-        nakama.onDisconnect = onDisconnect;
-        nakama.onError = onError;
-        nakama.onMatchPresence = onMatchPresence;
-        nakama.onMatchData = onMatchData;
+        nakamaHelper.onDisconnect = onDisconnect;
+        nakamaHelper.onError = onError;
+        nakamaHelper.onMatchPresence = onMatchPresence;
+        nakamaHelper.onMatchData = onMatchData;
 
         return () => {
-            nakama.onDisconnect = undefined;
-            nakama.onError = undefined;
-            nakama.onMatchPresence = undefined;
-            nakama.onMatchData = undefined;
+            nakamaHelper.onDisconnect = undefined;
+            nakamaHelper.onError = undefined;
+            nakamaHelper.onMatchPresence = undefined;
+            nakamaHelper.onMatchData = undefined;
         };
     }, []);
 
@@ -158,7 +158,7 @@ function Game() {
             <Lobby
                 players={players}
                 hostId={hostId}
-                selfId={nakama.selfId || ''}
+                selfId={nakamaHelper.selfId || ''}
                 onKick={onKick}
                 onBack={onLeave}
             />

@@ -1,12 +1,12 @@
 import * as nakamajs from "@heroiclabs/nakama-js";
 
-export default class Nakama {
+export default class NakamaHelper {
     private customId: string | undefined;
 
     private client: nakamajs.Client | undefined;
     private session: nakamajs.Session | undefined;
     private socket: nakamajs.Socket | undefined;
-    private match: nakamajs.Match | undefined;
+    private matchId: string | undefined;
 
     private onDisconnectHandler: ((event: Event) => void) | undefined;
     private onErrorHandler: ((event: Event) => void) | undefined;
@@ -15,6 +15,10 @@ export default class Nakama {
 
     get selfId() {
         return this.session?.user_id;
+    }
+
+    get currentMatchId() {
+        return this.matchId;
     }
 
     set onDisconnect(value: ((event: Event) => void) | undefined) {
@@ -34,6 +38,15 @@ export default class Nakama {
     }
 
     async auth(customId: string, jwt: string | null | undefined): Promise<string> {
+        if (this.customId && this.customId !== customId) {
+            // force session, socket and match to reinit
+            this.session = undefined;
+            if (this.socket) {
+                this.socket.disconnect(false);
+                this.socket = undefined;
+            }
+            this.matchId = undefined;
+        }
         this.customId = customId;
         if (!this.client) {
             this.client = new nakamajs.Client('defaultkey', '127.0.0.1', '7350', false);
@@ -93,27 +106,31 @@ export default class Nakama {
     }
 
     async joinOrCreateMatch(matchId: string | undefined): Promise<nakamajs.Match> {
+        await this.leaveCurrentMatch();
+        
         if (!matchId) {
             await this.reauth();
             const rpcResponse = await this.client!.rpc(this.session!, 'create_match_server_authoritative', {});
             matchId = (rpcResponse.payload as {match_id: string}).match_id;
         }
 
-        this.match = await this.socket!.joinMatch(matchId);
+        const match = await this.socket!.joinMatch(matchId);
 
-        return this.match;
+        this.matchId = match.match_id;
+
+        return match;
     }
 
     async leaveCurrentMatch(): Promise<void> {
-        if (this.match) {
-            const matchId = this.match.match_id;
-            this.match = undefined;
+        if (this.matchId) {
+            const matchId = this.matchId;
+            this.matchId = undefined;
             await this.socket!.leaveMatch(matchId);
         }
     }
 
     async sendMatchMessage(opCode: number, data: any): Promise<void> {
-        await this.socket!.sendMatchState(this.match!.match_id, opCode, data);
+        await this.socket!.sendMatchState(this.matchId!, opCode, data);
     }
 
     private async reauth(): Promise<void> {
