@@ -54,7 +54,21 @@ function Game() {
             })
             .then(() => nakama.joinOrCreateMatch(gameId))
             .then(onMatchJoined)
-            .catch((error) => console.error(error));
+            .catch((error) => {
+                if (error instanceof Error) {
+                    console.error(error);
+                } else if (typeof error === 'object' && typeof error.code === 'number' && typeof error.message === 'string') {
+                    // nakama error
+                    if (error.code === 4) {
+                        // Match not found
+                    } else if (error.code === 5) {
+                        // Match join rejected
+                    }
+                    console.error(error);
+                } else {
+                    console.error(error);
+                }
+            });
     };
 
     const onDisconnect = (event: Event) => {
@@ -115,6 +129,8 @@ function Game() {
 
     const onLeave = () => {
         setCurrentState('login');
+        setPlayers([]);
+        setHostId('');
         nakama.leaveCurrentMatch()
             .catch(error => console.error(error));
     };
@@ -234,7 +250,7 @@ function Login({
                 </Grid.Row>
                 <Grid.Row>
                     <Grid.Column>
-                        <Button onClick={() => onLogin(customId, userName, avatar)}>
+                        <Button onClick={() => onLogin(customId, userName || defaultUserName, avatar)}>
                             Login
                             <Icon name='arrow right' />
                         </Button>
