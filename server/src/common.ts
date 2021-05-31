@@ -8,8 +8,9 @@ enum OpCode {
     NEXT_STEP = 5,
     
     // initiated by players
-    KICK_PLAYER = 2, // initiated by host player
-    START_GAME = 3, // initiated by host player
+    KICK_PLAYER = 2, // initiated by host player on gettig started stage
+    START_GAME = 3, // initiated by host player on gettig started stage
+    SETTINGS_UPDATE = 7, // initiated by host player on gettig started stage
     PLAYER_INPUT = 4, // initiated by each player when game is in progress
 }
 
@@ -19,4 +20,8 @@ interface KickPlayerMessageData {
 
 interface HostChangedMessageData {
     userId: string
+}
+
+interface StartGameMessageData {
+    
 }

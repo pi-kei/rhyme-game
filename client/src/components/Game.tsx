@@ -5,7 +5,8 @@ import React, { useEffect, useReducer, useRef, useState } from "react";
 import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animals } from 'unique-names-generator';
 import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
-import { OpCode, HostChangedMessageData } from "../common";
+import { OpCode, HostChangedMessageData, KickPlayerMessageData } from "../common";
+import Nakama from "../nakama";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -13,29 +14,157 @@ const namesConfig: NamesConfig = {
     style: 'capital'
 };
 
-type PlayerInfo = {
+interface PlayerInfo {
     id: string,
     name: string,
     avatar: string
-};
+}
+
+function toPlayerInfo(users: nakamajs.User[]): PlayerInfo[] {
+    return users.map((user: nakamajs.User) => ({
+        id: user.id,
+        name: user.display_name,
+        avatar: user.avatar_url
+    } as PlayerInfo));
+}
+
+function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[]) {
+    return players.filter(
+        (player: PlayerInfo) => leaves.findIndex(
+            (p: nakamajs.Presence) => p.user_id === player.id
+        ) === -1
+    );
+}
+
+const nakama: Nakama = new Nakama();
 
 function Game() {
     const { id: gameId } = useParams<{id: string | undefined}>();
     const history = useHistory();
 
     const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'>('login');
+    const [players, setPlayers] = useState<PlayerInfo[]>([]);
+    const [hostId, setHostId] = useState<string>('');
 
+    const onLogin = (customId: string, userName: string, avatar: string) => {
+        nakama.auth(customId, localStorage.getItem('nakamaToken'))
+            .then((jwt: string) => {
+                localStorage.setItem('nakamaToken', jwt);
+                return nakama.updateAccount(userName, avatar);
+            })
+            .then(() => nakama.joinOrCreateMatch(gameId))
+            .then(onMatchJoined)
+            .catch((error) => console.error(error));
+    };
+
+    const onDisconnect = (event: Event) => {
+        console.info("Disconnected from the server. Event:", event);
+    };
+
+    const onError = (event: Event) => {
+        console.info("Error from the server. Event:", event);
+    };
+
+    const onMatchPresence = (matchPresence: nakamajs.MatchPresenceEvent) => {
+        console.info("Received match presence update:", matchPresence);
+
+        const joins = matchPresence.joins;
+        const leaves = matchPresence.leaves;
+
+        if (leaves && leaves.length && !(joins && joins.length)) {
+            setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves));
+        } else if (joins && joins.length) {
+            nakama.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
+                .then((users: nakamajs.User[]) => {
+                    setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves) : prevPlayers).concat(toPlayerInfo(users)));
+                })
+                .catch(error => console.error(error));
+        }
+    }
+
+    const onMatchData = (matchData: nakamajs.MatchData) => {
+        console.info("Received match data:", matchData);
+
+        if (matchData.op_code === OpCode.HOST_CHANGED) {
+            const messageData: HostChangedMessageData = matchData.data;
+            setHostId(messageData.userId);
+        }
+    };
+
+    const onMatchJoined = (match: nakamajs.Match) => {
+        console.log("onMatchJoined", match);
+        setCurrentState('lobby');
+        if (!gameId) {
+            history.replace(`/game/${match.match_id}`);
+        }
+
+        const presences = match.presences;
+        if (presences && presences.length) {
+            nakama.getUsers(presences.map((p: nakamajs.Presence) => p.user_id))
+                .then((users: nakamajs.User[]) => {
+                    setPlayers(toPlayerInfo(users));
+                })
+                .catch(error => console.error(error));
+        }
+    };
+
+    const onKick = (userId: string) => {
+        nakama.sendMatchMessage(OpCode.KICK_PLAYER, {userId} as KickPlayerMessageData)
+            .catch(error => console.error(error));
+    };
+
+    const onLeave = () => {
+        setCurrentState('login');
+        nakama.leaveCurrentMatch()
+            .catch(error => console.error(error));
+    };
+
+    useEffect(() => {
+        nakama.onDisconnect = onDisconnect;
+        nakama.onError = onError;
+        nakama.onMatchPresence = onMatchPresence;
+        nakama.onMatchData = onMatchData;
+
+        return () => {
+            nakama.onDisconnect = undefined;
+            nakama.onError = undefined;
+            nakama.onMatchPresence = undefined;
+            nakama.onMatchData = undefined;
+        };
+    }, []);
+
+    if (currentState === 'login') {
+        return (
+            <Login onLogin={onLogin} />
+        );
+    } else if (currentState === 'lobby') {
+        return (
+            <Lobby
+                players={players}
+                hostId={hostId}
+                selfId={nakama.selfId || ''}
+                onKick={onKick}
+                onBack={onLeave}
+            />
+        );
+    }
+
+    return (
+        null
+    );
+}
+
+interface LoginProps {
+    onLogin: (customId: string, userName: string, avatar: string) => void
+}
+
+function Login({
+    onLogin
+}: LoginProps) {
     const [defaultUserName, setDefaultUserName] = useState<string>(localStorage.getItem('username') || '');
     const [userName, setUserName] = useState<string>(defaultUserName);
     const [customId, setCustomId] = useState<string>(localStorage.getItem('uuid') || '');
     const [avatar, setAvatar] = useState<string>(localStorage.getItem('avatar') || '');
-
-    const [players, setPlayers] = useState<PlayerInfo[]>([]);
-    const [hostId, setHostId] = useState<string>('');
-
-    const clientRef = useRef<nakamajs.Client>();
-    const socketRef = useRef<nakamajs.Socket>();
-    const sessionRef = useRef<nakamajs.Session>();
 
     const randomCustomId = () => {
         const newCustomId = nanoid();
@@ -62,160 +191,6 @@ function Game() {
         setUserName(newUserName);
     };
 
-    const onLogin = () => {
-        setCurrentState('lobby');
-
-        const client = new nakamajs.Client('defaultkey');
-        clientRef.current = client;
-
-        client.authenticateCustom(customId, true)
-            .then(onAuth)
-            .catch(error => console.error(error));
-    };
-
-    const onAuth = (session: nakamajs.Session) => {
-        console.log('onAuth', session);
-
-        sessionRef.current = session;
-
-        const socket = clientRef.current!.createSocket(false, true);
-        socketRef.current = socket;
-
-        clientRef.current!.updateAccount(session, {
-            display_name: userName || defaultUserName,
-            avatar_url: avatar
-        }).then(onUpdateAccount).catch(error => console.error(error));
-    };
-
-    const onUpdateAccount = (result: boolean) => {
-        console.log("onUpdateAccount", result);
-
-        const socket = socketRef.current!;
-        const session = sessionRef.current!;
-        socket.connect(session, false)
-            .then(onConnect)
-            .catch(error => console.error(error));
-    };
-
-    const onConnect = (session: nakamajs.Session) => {
-        console.log('onConnect', session);
-
-        sessionRef.current = session;
-        
-        socketRef.current!.ondisconnect = onDisconnect;
-        socketRef.current!.onerror = onError;
-        socketRef.current!.onmatchpresence = onMatchPresence;
-        socketRef.current!.onmatchdata = onMatchData;
-
-        if (gameId) {
-            socketRef.current!.joinMatch(gameId)
-                .then(onMatchJoined)
-                .catch(error => console.error(error));
-        } else {
-            /*socketRef.current!.createMatch()
-                .then(onMatchJoined)
-                .catch(error => console.error(error));*/
-
-            clientRef.current!.rpc(sessionRef.current!, 'create_match_server_authoritative', {})
-                .then(onMatchCreated)
-                .catch(error => console.error(error));
-        }
-    };
-
-    const onDisconnect = (event: Event) => {
-        console.info("Disconnected from the server. Event:", event);
-    };
-
-    const onError = (event: Event) => {
-        console.info("Error from the server. Event:", event);
-    };
-
-    const onMatchPresence = (matchPresence: nakamajs.MatchPresenceEvent) => {
-        console.info("Received match presence update:", matchPresence);
-
-        //const joins = matchPresence.joins && matchPresence.joins.filter((p: nakamajs.Presence) => p.user_id !== sessionRef.current!.user_id);
-        const joins = matchPresence.joins;
-
-        if (matchPresence.leaves && matchPresence.leaves.length && !(joins && joins.length)) {
-            setPlayers(
-                (prevPlayers: PlayerInfo[]) => prevPlayers.filter(
-                    (player: PlayerInfo) => matchPresence.leaves.findIndex(
-                        (p: nakamajs.Presence) => p.user_id === player.id
-                    ) === -1
-                )
-            );
-        } else if (joins && joins.length) {
-            clientRef.current!.getUsers(sessionRef.current!, joins.map((p: nakamajs.Presence) => p.user_id))
-                .then((users: nakamajs.Users) => {
-                    let newPlayers: PlayerInfo[] = [];
-                    if (users.users && users.users.length) {
-                        newPlayers = users.users.map((user: nakamajs.User) => ({
-                            id: user.id,
-                            name: user.display_name,
-                            avatar: user.avatar_url
-                        } as PlayerInfo));
-                    }
-                    setPlayers(
-                        (prevPlayers: PlayerInfo[]) => {
-                            let filteredPlayers = prevPlayers;
-                            if (matchPresence.leaves && matchPresence.leaves.length) {
-                                filteredPlayers = filteredPlayers.filter(
-                                    (player: PlayerInfo) => matchPresence.leaves.findIndex(
-                                        (p: nakamajs.Presence) => p.user_id === player.id
-                                    ) === -1
-                                );
-                            }
-                            return filteredPlayers.concat(newPlayers);
-                        }
-                    );
-                })
-                .catch(error => console.error(error));
-        }
-    }
-
-    const onMatchData = (matchData: nakamajs.MatchData) => {
-        console.info("Received match data:", matchData);
-
-        if (matchData.op_code === OpCode.HOST_CHANGED) {
-            const messageData: HostChangedMessageData = matchData.data;
-            setHostId(messageData.userId);
-        }
-    };
-
-    const onMatchJoined = (match: nakamajs.Match) => {
-        console.log("onMatchJoined", match);
-        if (!gameId) {
-            history.replace(`/game/${match.match_id}`);
-        }
-
-        const presences = match.presences;
-        if (presences && presences.length) {
-            clientRef.current!.getUsers(sessionRef.current!, presences.map((p: nakamajs.Presence) => p.user_id))
-                .then((users: nakamajs.Users) => {
-                    let newPlayers: PlayerInfo[] = [];
-                    if (users.users && users.users.length) {
-                        newPlayers = users.users.map((user: nakamajs.User) => ({
-                            id: user.id,
-                            name: user.display_name,
-                            avatar: user.avatar_url
-                        } as PlayerInfo));
-                    }
-                    setPlayers(newPlayers);
-                })
-                .catch(error => console.error(error));
-        }
-    };
-
-    const onMatchCreated = (response: nakamajs.RpcResponse) => {
-        console.log("onMatchCreated", response);
-
-        const payload = response.payload as {match_id: string};
-
-        socketRef.current!.joinMatch(payload.match_id)
-            .then(onMatchJoined)
-            .catch(error => console.error(error));
-    };
-
     useEffect(() => {
         if (!defaultUserName) {
             randomUserName();
@@ -230,48 +205,6 @@ function Game() {
         }
     }, []);
 
-    if (currentState === 'login') {
-        return (
-            <Login
-                avatar={avatar}
-                defaultUserName={defaultUserName}
-                userName={userName}
-                refreshAvatar={randomAvatar}
-                refreshUserName={randomUserName}
-                onUserNameChange={onUserNameChange}
-                onLogin={onLogin}
-            />
-        );
-    } else if (currentState === 'lobby') {
-        return (
-            <Lobby players={players} hostId={hostId} selfId={sessionRef.current?.user_id || ''} />
-        );
-    }
-
-    return (
-        null
-    );
-}
-
-interface LoginProps {
-    avatar: string,
-    defaultUserName: string,
-    userName: string,
-    refreshAvatar: () => void,
-    refreshUserName: () => void,
-    onUserNameChange: (event: React.ChangeEvent, data: InputOnChangeData) => void,
-    onLogin: () => void
-}
-
-function Login({
-    avatar,
-    defaultUserName,
-    userName,
-    refreshAvatar,
-    refreshUserName,
-    onUserNameChange,
-    onLogin
-}: LoginProps) {
     return (
         <Container textAlign='center'>
             <Grid>
@@ -281,7 +214,7 @@ function Login({
                             as='a'
                             circular
                             compact
-                            onClick={refreshAvatar}
+                            onClick={randomAvatar}
                         >
                             <Image src={avatar} size='tiny' />
                         </Button>
@@ -293,7 +226,7 @@ function Login({
                             placeholder={defaultUserName}
                             value={userName}
                             fluid
-                            action={{icon:'undo', disabled: !!userName, onClick: refreshUserName}}
+                            action={{icon:'undo', disabled: !!userName, onClick: randomUserName}}
                             onChange={onUserNameChange}
                             maxLength={50}
                         />
@@ -301,7 +234,7 @@ function Login({
                 </Grid.Row>
                 <Grid.Row>
                     <Grid.Column>
-                        <Button onClick={onLogin}>
+                        <Button onClick={() => onLogin(customId, userName, avatar)}>
                             Login
                             <Icon name='arrow right' />
                         </Button>
@@ -315,10 +248,12 @@ function Login({
 interface LobbyProps {
     players: PlayerInfo[],
     hostId: string,
-    selfId: string
+    selfId: string,
+    onKick: (userId: string) => void,
+    onBack: () => void
 }
 
-function Lobby({players, hostId, selfId}: LobbyProps) {
+function Lobby({players, hostId, selfId, onKick, onBack}: LobbyProps) {
     return (
         <Container>
             <Grid columns={2} divided>
@@ -337,12 +272,17 @@ function Lobby({players, hostId, selfId}: LobbyProps) {
                                                     <Icon name="certificate" color='yellow' />
                                                 )}
                                                 {p.id === selfId && (
-                                                    <Icon name="check" color='grey' />
+                                                    <Icon name="check" color='green' />
                                                 )}
                                             </Icon.Group>
                                         )}
-                                        {selfId && hostId && selfId === hostId && (
-                                            <Button icon='ban' disabled={p.id === selfId} basic></Button>
+                                        {selfId && hostId && selfId === hostId && p.id !== selfId && (
+                                            <Button
+                                                icon='ban'
+                                                color='red'
+                                                basic
+                                                onClick={() => onKick(p.id)}
+                                            ></Button>
                                         )}
                                     </List.Header>
                                 </List.Content>
@@ -351,7 +291,11 @@ function Lobby({players, hostId, selfId}: LobbyProps) {
                     </List>
                 </Grid.Column>
                 <Grid.Column>
-                    <Button disabled={players.length < 2}>
+                    <Button onClick={onBack}>
+                        <Icon name='arrow left' />
+                        Back
+                    </Button>
+                    <Button disabled={!(selfId && hostId && selfId === hostId)}>
                         Start
                         <Icon name='arrow right' />
                     </Button>

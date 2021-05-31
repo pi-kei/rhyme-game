@@ -43,10 +43,13 @@ type Mode = 'sequential' | 'parallel';
 
 interface GameState {
     stage: Stage,
-    mode: Mode,
+    settings: {
+        mode: Mode
+    },
     presences: {[userId: string]: nkruntime.Presence},
     host: nkruntime.Presence | null,
-    playersJoinOrder: string[]
+    playersJoinOrder: string[],
+    kickedPlayerIds: {[userId: string]: true}
 }
 
 function decodeMessageData<T>(data: string): T | undefined {
@@ -62,10 +65,13 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
 
     const initialState: GameState = {
         stage: 'gettingReady',
-        mode: 'parallel',
+        settings: {
+            mode: 'parallel'
+        },
         presences: {},
         host: null,
-        playersJoinOrder: []
+        playersJoinOrder: [],
+        kickedPlayerIds: {}
     };
 
     return {
@@ -105,6 +111,14 @@ let matchJoinAttempt: nkruntime.MatchJoinAttemptFunction = function (ctx: nkrunt
         };
     }
 
+    if (gameState.kickedPlayerIds[presence.userId]) {
+        return {
+            state: gameState,
+            accept: false,
+            rejectMessage: 'kicked'
+        };
+    }
+
     return {
         state: gameState,
         accept: true,
@@ -127,7 +141,8 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
 
     if (gameState.host) {
         logger.debug('Sending HOST_CHANGED');
-        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, JSON.stringify({ userId: gameState.host.userId } as HostChangedMessageData), presences);
+        // NOTE: can't specify presences. See https://github.com/heroiclabs/nakama/issues/620
+        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, JSON.stringify({ userId: gameState.host.userId } as HostChangedMessageData)/*, presences*/);
     }
     
     return {
@@ -175,12 +190,24 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 continue;
             }
             if (!gameState.presences[data.userId]) {
-                // hot in the list
+                // not in the list
                 continue;
             }
-            // TODO: does it trigger match leave?
             logger.debug('Kicking player');
+            gameState.kickedPlayerIds[data.userId] = true;
             dispatcher.matchKick([gameState.presences[data.userId]]);
+        } else if (message.opCode === OpCode.START_GAME) {
+            if (!gameState.host || gameState.host.userId !== message.sender.userId) {
+                // not a host player
+                continue;
+            }
+            if (gameState.stage !== 'gettingReady') {
+                // wrong stage
+                continue;
+            }
+            logger.debug('Starting game');
+            gameState.stage = 'inProgress';
+            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({}));
         }
     }
 
@@ -201,6 +228,7 @@ let matchLeave: nkruntime.MatchLeaveFunction = function(ctx: nkruntime.Context, 
         delete gameState.presences[presence.userId];
     }
 
+    // TODO: clean gameState.playersJoinOrder
     // TODO: what if user left when game is in progress
     // TODO: what if host left
 
