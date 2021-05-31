@@ -49,6 +49,7 @@ export default class Nakama {
         if (!this.socket) {
             this.socket = this.client.createSocket(false, true);
             this.socket.ondisconnect = (event: Event) => {
+                this.socket = undefined;
                 if (this.onDisconnectHandler) {
                     this.onDisconnectHandler(event);
                 }
