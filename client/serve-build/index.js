@@ -9,7 +9,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(helmet({
   contentSecurityPolicy: false, // TODO: fix
-  crossOriginEmbedderPolicy: true,
+  crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: true,
   crossOriginResourcePolicy: true,
   expectCt: false,
