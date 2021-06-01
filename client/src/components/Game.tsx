@@ -3,7 +3,7 @@ import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { useEffect, useReducer, useRef, useState } from "react";
 import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animals } from 'unique-names-generator';
-import multiavatar from '@multiavatar/multiavatar';
+//import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
 import { OpCode, HostChangedMessageData, KickPlayerMessageData } from "../common";
 import NakamaHelper from "../nakamaHelper";
@@ -199,7 +199,7 @@ function Login({
 
     const randomAvatar = () => {
         //const newAvatar = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(multiavatar(nanoid()))))}`;
-        const newAvatar = `https://api.multiavatar.com/${nanoid()}.svg`;
+        const newAvatar = process.env.NODE_ENV === 'production' && process.env.REACT_APP_GET_AVATARS_FROM === 'sameOrigin' ? `${window.location.origin}/avatar/${nanoid()}` : `https://api.multiavatar.com/${nanoid()}.svg`;
         storage.setItem('avatar', newAvatar);
         setAvatar(newAvatar);
     };
