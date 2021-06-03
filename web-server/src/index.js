@@ -24,7 +24,7 @@ app.use(cors({origin: false}));
 // TODO: force https
 // TODO: proxy settings
 
-app.use(express.static(path.join(__dirname, '..', 'build'))); // TODO: set options
+app.use(express.static(process.env.CLIENT_BUILD_PATH)); // TODO: set options
 
 app.get('/avatar/:id', function (req, res) {
     const svg = multiavatar(req.params.id);
@@ -34,7 +34,7 @@ app.get('/avatar/:id', function (req, res) {
 });
 
 app.get('/*', function (req, res) {
-  res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
+  res.sendFile(path.join(process.env.CLIENT_BUILD_PATH, 'index.html'));
 });
 
 app.listen(process.env.PORT || 9000);

@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "rhyme-game-nakama",
   "version": "1.0.0",
   "main": "build/index.js",
   "license": "MIT",
@@ -11,6 +11,6 @@
     "nakama-runtime": "https://github.com/heroiclabs/nakama-common"
   },
   "scripts": {
-    "build-module": "npx tsc"
+    "build": "npx tsc"
   }
 }
