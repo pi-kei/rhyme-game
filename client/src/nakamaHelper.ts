@@ -1,8 +1,12 @@
 import * as nakamajs from "@heroiclabs/nakama-js";
 
 export default class NakamaHelper {
+    readonly serverKey: string | undefined;
+    readonly host: string | undefined;
+    readonly port: string | undefined;
+    readonly useSSL: boolean | undefined;    
+    
     private customId: string | undefined;
-
     private client: nakamajs.Client | undefined;
     private session: nakamajs.Session | undefined;
     private socket: nakamajs.Socket | undefined;
@@ -12,6 +16,13 @@ export default class NakamaHelper {
     private onErrorHandler: ((event: Event) => void) | undefined;
     private onMatchPresenceHandler: ((event: nakamajs.MatchPresenceEvent) => void) | undefined;
     private onMatchDataHandler: ((event: nakamajs.MatchData) => void) | undefined;
+
+    constructor(serverKey: string | undefined, host: string | undefined, port: string | undefined, useSSL: boolean | undefined) {
+        this.serverKey = serverKey;
+        this.host = host;
+        this.port = port;
+        this.useSSL = useSSL;
+    }
 
     get selfId() {
         return this.session?.user_id;
@@ -49,7 +60,7 @@ export default class NakamaHelper {
         }
         this.customId = customId;
         if (!this.client) {
-            this.client = new nakamajs.Client('defaultkey', '127.0.0.1', '7350', false);
+            this.client = new nakamajs.Client(this.serverKey, this.host, this.port, this.useSSL);
         }
         if (!this.session && jwt) {
             try {
@@ -60,7 +71,7 @@ export default class NakamaHelper {
         }
         await this.reauth();
         if (!this.socket) {
-            this.socket = this.client.createSocket(false, true);
+            this.socket = this.client.createSocket(this.useSSL, true);
             this.socket.ondisconnect = (event: Event) => {
                 this.socket = undefined;
                 if (this.onDisconnectHandler) {

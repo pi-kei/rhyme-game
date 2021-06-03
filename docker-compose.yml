@@ -54,7 +54,6 @@ services:
       - ./client:/home/node/app
     expose:
       - "3000"
-      - "35729"
     ports:
       - "3000:3000"
     command: "yarn start"

@@ -37,7 +37,12 @@ function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[]) {
 }
 
 const storage: Storage = process.env.NODE_ENV !== 'production' && process.env.REACT_APP_USE_SESSION_STORAGE === 'true' ? sessionStorage : localStorage;
-const nakamaHelper: NakamaHelper = new NakamaHelper();
+const nakamaHelper: NakamaHelper = new NakamaHelper(
+    process.env.REACT_APP_NAKAMA_SERVER_KEY,
+    process.env.REACT_APP_NAKAMA_HOST,
+    process.env.REACT_APP_NAKAMA_PORT,
+    process.env.REACT_APP_NAKAMA_USE_SSL === "true"
+);
 
 function Game() {
     const { id: gameId } = useParams<{id: string | undefined}>();
