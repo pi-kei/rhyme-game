@@ -1,4 +1,4 @@
-import { Button, Container, Grid, Icon, Image, Input, InputOnChangeData, List } from "semantic-ui-react";
+import { Button, Confirm, Container, Grid, Icon, Image, Input, InputOnChangeData, List, Segment } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { useEffect, useReducer, useRef, useState } from "react";
@@ -231,12 +231,11 @@ function Login({
 
     return (
         <Container textAlign='center'>
-            <Grid>
+            <Grid padded>
                 <Grid.Row>
                     <Grid.Column>
                         <Button
                             as='a'
-                            circular
                             compact
                             onClick={randomAvatar}
                         >
@@ -258,7 +257,7 @@ function Login({
                 </Grid.Row>
                 <Grid.Row>
                     <Grid.Column>
-                        <Button onClick={() => onLogin(customId, userName || defaultUserName, avatar)}>
+                        <Button onClick={() => onLogin(customId, userName || defaultUserName, avatar)} primary>
                             Login
                             <Icon name='arrow right' />
                         </Button>
@@ -278,43 +277,47 @@ interface LobbyProps {
 }
 
 function Lobby({players, hostId, selfId, onKick, onBack}: LobbyProps) {
+    const [confirmKick, setConfirmKick] = useState<PlayerInfo | null>(null);
+    const onCancelKick = () => {
+        setConfirmKick(null);
+    };
+    const onConfirmKick = () => {
+        setConfirmKick(null);
+        onKick(confirmKick!.id);
+    };
     return (
         <Container>
-            <Grid columns={2} divided>
-                <Grid.Column>
-                    <List verticalAlign="middle">
+            <Grid columns={2} divided padded stackable>
+                <Grid.Column width={5}>
                         {players.map((p: PlayerInfo) => (
-                            <List.Item key={p.id}>
+                            <Grid.Row key={p.id}>
                                 <Image avatar src={p.avatar} />
-                                <List.Content>
-                                    <List.Header>
-                                        {p.name}
-                                        {' '}
-                                        {(p.id === selfId || p.id === hostId) && (
-                                            <Icon.Group>
-                                                {p.id === hostId && (
-                                                    <Icon name="certificate" color='yellow' />
-                                                )}
-                                                {p.id === selfId && (
-                                                    <Icon name="check" color='green' />
-                                                )}
-                                            </Icon.Group>
+                                {p.name}
+                                {' '}
+                                {(p.id === selfId || p.id === hostId) && (
+                                    <Icon.Group>
+                                        {p.id === hostId && (
+                                            <Icon name="certificate" color='yellow' />
                                         )}
-                                        {selfId && hostId && selfId === hostId && p.id !== selfId && (
-                                            <Button
-                                                icon='ban'
-                                                color='red'
-                                                basic
-                                                onClick={() => onKick(p.id)}
-                                            ></Button>
+                                        {p.id === selfId && (
+                                            <Icon name="check" color='green' />
                                         )}
-                                    </List.Header>
-                                </List.Content>
-                            </List.Item>
+                                    </Icon.Group>
+                                )}
+                                {(selfId && hostId && selfId === hostId && p.id !== selfId) && (
+                                    <Button
+                                        icon='ban'
+                                        color='red'
+                                        basic
+                                        onClick={() => setConfirmKick(p)}
+                                        compact
+                                        circular
+                                    />
+                                )}
+                            </Grid.Row>
                         ))}
-                    </List>
                 </Grid.Column>
-                <Grid.Column>
+                <Grid.Column width={11}>
                     <Button onClick={onBack}>
                         <Icon name='arrow left' />
                         Back
@@ -325,6 +328,20 @@ function Lobby({players, hostId, selfId, onKick, onBack}: LobbyProps) {
                     </Button>
                 </Grid.Column>
             </Grid>
+            <Confirm
+                open={!!confirmKick}
+                onCancel={onCancelKick}
+                onConfirm={onConfirmKick}
+                cancelButton={'No'}
+                confirmButton={'Yes'}
+                header={'Kick player?'}
+                content={confirmKick &&  (
+                    <Segment basic>
+                        <Image avatar src={confirmKick.avatar} />
+                        {confirmKick.name}
+                    </Segment>
+                )}
+            />
         </Container>
     );
 }
