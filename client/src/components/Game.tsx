@@ -1,4 +1,4 @@
-import { Button, Confirm, Container, Grid, Icon, Image, Input, InputOnChangeData, List, Segment } from "semantic-ui-react";
+import { Button, Confirm, Container, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Segment } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { useEffect, useReducer, useRef, useState } from "react";
@@ -7,6 +7,7 @@ import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animal
 import { useHistory, useParams } from "react-router";
 import { OpCode, HostChangedMessageData, KickPlayerMessageData } from "../common";
 import NakamaHelper from "../nakamaHelper";
+import {useAlertContext} from "./Alert";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -47,10 +48,30 @@ const nakamaHelper: NakamaHelper = new NakamaHelper(
 function Game() {
     const { id: gameId } = useParams<{id: string | undefined}>();
     const history = useHistory();
+    const {appendMessage} = useAlertContext();
 
     const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'>('login');
     const [players, setPlayers] = useState<PlayerInfo[]>([]);
     const [hostId, setHostId] = useState<string>('');
+
+    const handleError = (error: any) => {
+        if (error instanceof Error) {
+            appendMessage(error.name, error.message, 'error');
+            console.error(error);
+        } else if (typeof error === 'object' && typeof error.code === 'number' && typeof error.message === 'string') {
+            // nakama error
+            if (error.code === 4) {
+                // Match not found
+            } else if (error.code === 5) {
+                // Match join rejected
+            }
+            appendMessage('Error', error.message, 'error');
+            console.error(error);
+        } else {
+            appendMessage('Error', 'Something went wrong', 'error');
+            console.error(error);
+        }
+    };
 
     const onLogin = (customId: string, userName: string, avatar: string) => {
         nakamaHelper.auth(customId, storage.getItem('nakamaToken'))
@@ -60,21 +81,7 @@ function Game() {
             })
             .then(() => nakamaHelper.joinOrCreateMatch(gameId))
             .then(onMatchJoined)
-            .catch((error) => {
-                if (error instanceof Error) {
-                    console.error(error);
-                } else if (typeof error === 'object' && typeof error.code === 'number' && typeof error.message === 'string') {
-                    // nakama error
-                    if (error.code === 4) {
-                        // Match not found
-                    } else if (error.code === 5) {
-                        // Match join rejected
-                    }
-                    console.error(error);
-                } else {
-                    console.error(error);
-                }
-            });
+            .catch(handleError);
     };
 
     const onDisconnect = (event: Event) => {
@@ -100,7 +107,7 @@ function Game() {
                 .then((users: nakamajs.User[]) => {
                     setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves) : prevPlayers).concat(toPlayerInfo(users)));
                 })
-                .catch(error => console.error(error));
+                .catch(handleError);
         }
     }
 
@@ -126,13 +133,13 @@ function Game() {
                 .then((users: nakamajs.User[]) => {
                     setPlayers(toPlayerInfo(users));
                 })
-                .catch(error => console.error(error));
+                .catch(handleError);
         }
     };
 
     const onKick = (userId: string) => {
         nakamaHelper.sendMatchMessage(OpCode.KICK_PLAYER, {userId} as KickPlayerMessageData)
-            .catch(error => console.error(error));
+            .catch(handleError);
     };
 
     const onLeave = () => {
@@ -140,7 +147,7 @@ function Game() {
         setPlayers([]);
         setHostId('');
         nakamaHelper.leaveCurrentMatch()
-            .catch(error => console.error(error));
+            .catch(handleError);
     };
 
     useEffect(() => {
@@ -157,24 +164,21 @@ function Game() {
         };
     }, []);
 
-    if (currentState === 'login') {
-        return (
-            <Login onLogin={onLogin} />
-        );
-    } else if (currentState === 'lobby') {
-        return (
-            <Lobby
-                players={players}
-                hostId={hostId}
-                selfId={nakamaHelper.selfId || ''}
-                onKick={onKick}
-                onBack={onLeave}
-            />
-        );
-    }
-
     return (
-        null
+        <>
+            {currentState === 'login' && (
+                <Login onLogin={onLogin} />
+            )}
+            {currentState === 'lobby' && (
+                <Lobby
+                    players={players}
+                    hostId={hostId}
+                    selfId={nakamaHelper.selfId || ''}
+                    onKick={onKick}
+                    onBack={onLeave}
+                />
+            )}
+        </>
     );
 }
 
