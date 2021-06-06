@@ -9,6 +9,8 @@ import { OpCode, HostChangedMessageData, KickPlayerMessageData } from "../common
 import NakamaHelper from "../nakamaHelper";
 import {useAlertContext} from "./Alert";
 import './Game.css';
+import { useTranslation } from "react-i18next";
+import LangSelector from "./LangSelector";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -197,6 +199,7 @@ interface LoginProps {
 function Login({
     onLogin
 }: LoginProps) {
+    const { t, ready } = useTranslation();
     const [defaultUserName, setDefaultUserName] = useState<string>(storage.getItem('username') || '');
     const [userName, setUserName] = useState<string>(defaultUserName);
     const [customId, setCustomId] = useState<string>(storage.getItem('uuid') || '');
@@ -241,6 +244,10 @@ function Login({
         }
     }, []);
 
+    if (!ready) {
+        return null;
+    }
+
     return (
         <Container textAlign='center'>
             <Grid padded>
@@ -269,8 +276,9 @@ function Login({
                 </Grid.Row>
                 <Grid.Row>
                     <Grid.Column>
+                        <LangSelector/>
                         <Button onClick={() => onLogin(customId, userName || defaultUserName, avatar)} primary>
-                            Login
+                            {t('gameLoginButton')}
                             <Icon name='arrow right' />
                         </Button>
                     </Grid.Column>

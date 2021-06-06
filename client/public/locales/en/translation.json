@@ -1,0 +1,7 @@
+{
+    "appTitle": "Rhymes Sometimes",
+    "appDescription": "Multiplayer game based on rhyming",
+    "welcomeStartButton": "Start",
+    "gitubLink": "Source code available on <linkToGithub>GitHub</linkToGithub>",
+    "gameLoginButton": "Login"
+}
