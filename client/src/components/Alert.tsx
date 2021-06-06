@@ -2,7 +2,7 @@ import React, { useContext, useRef, useState } from "react";
 import { Message, Portal, Transition } from "semantic-ui-react";
 import './Alert.css';
 
-const AlertContext = React.createContext<{appendMessage:(header: string, content: string, type?: AlertType) => void}>({appendMessage:() => undefined});
+const AlertContext = React.createContext<{appendMessage:(header: string, content: string, type?: AlertType, timeout?: number) => void}>({appendMessage:() => undefined});
 
 type AlertType = 'default'|'info'|'success'|'warning'|'error';
 
@@ -10,7 +10,8 @@ interface AlertMessageData {
     id: number,
     type?: AlertType,
     header: string,
-    content: string
+    content: string,
+    timeoutId: NodeJS.Timeout | undefined
 }
 
 function useAlert() {
@@ -21,8 +22,18 @@ function useAlert() {
         setMessages(prevMessages => prevMessages.filter(message => message.id !== id));
     };
 
-    const appendMessage = (header: string, content: string, type?: AlertType) => {
-        setMessages(prevMessages => [...prevMessages, {id: nextId.current++, type, header, content}]);
+    const appendMessage = (header: string, content: string, type?: AlertType, timeout?: number) => {
+        setMessages(prevMessages => {
+            const newMessageId = nextId.current++;
+            const newMessageData: AlertMessageData = {
+                id: newMessageId,
+                type,
+                header,
+                content,
+                timeoutId: timeout && timeout > 0 ? setTimeout(() => onDismiss(newMessageId), timeout) : undefined
+            };
+            return [...prevMessages, newMessageData];
+        });
     };
 
     return {

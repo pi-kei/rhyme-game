@@ -3,5 +3,14 @@
     "appDescription": "Multiplayer game based on rhyming",
     "welcomeStartButton": "Start",
     "gitubLink": "Source code available on <linkToGithub>GitHub</linkToGithub>",
-    "gameLoginButton": "Login"
+    "gameLoginButton": "Login",
+    "gameBackButton": "Back",
+    "gamePlayersCountLabel": "Players",
+    "gameInviteButton": "Invite",
+    "gameStartButton": "Start",
+    "confirmKickNoButton": "No",
+    "confirmKickYesButton": "Yes",
+    "confirmKickHeader": "Kick player?",
+    "linkCopiedHeader": "Copied",
+    "linkCopiedContent": "Link is copied to clipboard"
 }

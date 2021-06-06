@@ -3,5 +3,14 @@
     "appDescription": "Мультиплеерная игра, основанная на рифме",
     "welcomeStartButton": "Ясно, понятно",
     "gitubLink": "Исходный код доступен на <linkToGithub>GitHub</linkToGithub>",
-    "gameLoginButton": "Войти"
+    "gameLoginButton": "Войти",
+    "gameBackButton": "Назад",
+    "gamePlayersCountLabel": "Игроков",
+    "gameInviteButton": "Пригласить",
+    "gameStartButton": "Погнали",
+    "confirmKickNoButton": "Пусть живёт",
+    "confirmKickYesButton": "Ага",
+    "confirmKickHeader": "Выкинуть непроверенного засланца?",
+    "linkCopiedHeader": "Скопировано",
+    "linkCopiedContent": "Ссылка скопирована в буфер обмена"
 }

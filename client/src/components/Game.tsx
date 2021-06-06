@@ -49,6 +49,7 @@ const nakamaHelper: NakamaHelper = new NakamaHelper(
 );
 
 function Game() {
+    const { t } = useTranslation();
     const { id: gameId } = useParams<{id: string | undefined}>();
     const history = useHistory();
     const {appendMessage} = useAlertContext();
@@ -155,7 +156,7 @@ function Game() {
 
     const onInvite = () => {
         navigator?.clipboard?.writeText(window.location.href).then(() => {
-            appendMessage('Copied', 'Link is copied to clipboard', 'success');
+            appendMessage(t('linkCopiedHeader'), t('linkCopiedContent'), 'success', 3000);
         }).catch(handleError);
     };
 
@@ -298,6 +299,7 @@ interface LobbyProps {
 }
 
 function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) {
+    const { t } = useTranslation();
     const [confirmKick, setConfirmKick] = useState<PlayerInfo | null>(null);
     const onCancelKick = () => {
         setConfirmKick(null);
@@ -312,13 +314,13 @@ function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) 
                 <Grid.Column>
                     <Button onClick={onBack} basic>
                         <Icon name='arrow left' />
-                        Back
+                        {t('gameBackButton')}
                     </Button>
                 </Grid.Column>
             </Grid>
             <Grid columns={2} divided padded stackable>
                 <Grid.Column width={5}>
-                        <div>Players: {players.length} / 16</div>
+                        <div>{t('gamePlayersCountLabel')}: {players.length} / 16</div>
                         {players.map((p: PlayerInfo) => (
                             <div key={p.id} className='ui-player-list-item'>
                                 <Image avatar src={p.avatar} />
@@ -349,10 +351,10 @@ function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) 
                 <Grid.Column width={11}>
                     <Button onClick={onInvite}>
                         <Icon name='chain' />
-                        Invite
+                        {t('gameInviteButton')}
                     </Button>
                     <Button disabled={!(selfId && hostId && selfId === hostId)} primary>
-                        Start
+                        {t('gameStartButton')}
                         <Icon name='arrow right' />
                     </Button>
                 </Grid.Column>
@@ -361,9 +363,9 @@ function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) 
                 open={!!confirmKick}
                 onCancel={onCancelKick}
                 onConfirm={onConfirmKick}
-                cancelButton={'No'}
-                confirmButton={'Yes'}
-                header={'Kick player?'}
+                cancelButton={t('confirmKickNoButton')}
+                confirmButton={t('confirmKickYesButton')}
+                header={t('confirmKickHeader')}
                 content={confirmKick &&  (
                     <Segment basic>
                         <Image avatar src={confirmKick.avatar} />
