@@ -8,6 +8,7 @@ import { useHistory, useParams } from "react-router";
 import { OpCode, HostChangedMessageData, KickPlayerMessageData } from "../common";
 import NakamaHelper from "../nakamaHelper";
 import {useAlertContext} from "./Alert";
+import './Game.css';
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -150,6 +151,12 @@ function Game() {
             .catch(handleError);
     };
 
+    const onInvite = () => {
+        navigator?.clipboard?.writeText(window.location.href).then(() => {
+            appendMessage('Copied', 'Link is copied to clipboard', 'success');
+        }).catch(handleError);
+    };
+
     useEffect(() => {
         nakamaHelper.onDisconnect = onDisconnect;
         nakamaHelper.onError = onError;
@@ -176,6 +183,7 @@ function Game() {
                     selfId={nakamaHelper.selfId || ''}
                     onKick={onKick}
                     onBack={onLeave}
+                    onInvite={onInvite}
                 />
             )}
         </>
@@ -277,10 +285,11 @@ interface LobbyProps {
     hostId: string,
     selfId: string,
     onKick: (userId: string) => void,
-    onBack: () => void
+    onBack: () => void,
+    onInvite: () => void
 }
 
-function Lobby({players, hostId, selfId, onKick, onBack}: LobbyProps) {
+function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) {
     const [confirmKick, setConfirmKick] = useState<PlayerInfo | null>(null);
     const onCancelKick = () => {
         setConfirmKick(null);
@@ -291,15 +300,23 @@ function Lobby({players, hostId, selfId, onKick, onBack}: LobbyProps) {
     };
     return (
         <Container>
+            <Grid padded>
+                <Grid.Column>
+                    <Button onClick={onBack} basic>
+                        <Icon name='arrow left' />
+                        Back
+                    </Button>
+                </Grid.Column>
+            </Grid>
             <Grid columns={2} divided padded stackable>
                 <Grid.Column width={5}>
+                        <div>Players: {players.length} / 16</div>
                         {players.map((p: PlayerInfo) => (
-                            <Grid.Row key={p.id}>
+                            <div key={p.id} className='ui-player-list-item'>
                                 <Image avatar src={p.avatar} />
-                                {p.name}
-                                {' '}
+                                <span className='ui-player-list-item-name'>{p.name}</span>
                                 {(p.id === selfId || p.id === hostId) && (
-                                    <Icon.Group>
+                                    <Icon.Group size='big'>
                                         {p.id === hostId && (
                                             <Icon name="certificate" color='yellow' />
                                         )}
@@ -318,15 +335,15 @@ function Lobby({players, hostId, selfId, onKick, onBack}: LobbyProps) {
                                         circular
                                     />
                                 )}
-                            </Grid.Row>
+                            </div>
                         ))}
                 </Grid.Column>
                 <Grid.Column width={11}>
-                    <Button onClick={onBack}>
-                        <Icon name='arrow left' />
-                        Back
+                    <Button onClick={onInvite}>
+                        <Icon name='chain' />
+                        Invite
                     </Button>
-                    <Button disabled={!(selfId && hostId && selfId === hostId)}>
+                    <Button disabled={!(selfId && hostId && selfId === hostId)} primary>
                         Start
                         <Icon name='arrow right' />
                     </Button>

@@ -1,0 +1,19 @@
+.ui-player-list-item {
+    display: flex;
+    align-items: center;
+    margin: 0.5rem 0;
+}
+
+.ui-player-list-item:first-child {
+    margin-top: 0;
+}
+
+.ui-player-list-item:last-child {
+    margin-bottom: 0;
+}
+
+.ui-player-list-item > .ui-player-list-item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1 1 0%
+}
