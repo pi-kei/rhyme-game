@@ -1,16 +1,17 @@
-import { Button, Confirm, Container, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Segment } from "semantic-ui-react";
+import { Button, Confirm, Container, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Segment } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { useEffect, useReducer, useRef, useState } from "react";
 import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animals } from 'unique-names-generator';
 //import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
-import { OpCode, HostChangedMessageData, KickPlayerMessageData } from "../common";
+import { OpCode, HostChangedMessageData, KickPlayerMessageData, StageChangedMessageData } from "../common";
 import NakamaHelper from "../nakamaHelper";
 import {useAlertContext} from "./Alert";
 import './Game.css';
 import { useTranslation } from "react-i18next";
 import LangSelector from "./LangSelector";
+import { useCountdownTimer, CountdownTimerState } from "./Timer";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -54,9 +55,12 @@ function Game() {
     const history = useHistory();
     const {appendMessage} = useAlertContext();
 
-    const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'>('login');
+    const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'|'results'>('login');
     const [players, setPlayers] = useState<PlayerInfo[]>([]);
     const [hostId, setHostId] = useState<string>('');
+
+    const [stepData, setStepData] = useState<any>();
+    const [results, setResults] = useState<any>();
 
     const handleError = (error: any) => {
         if (error instanceof Error) {
@@ -121,6 +125,19 @@ function Game() {
         if (matchData.op_code === OpCode.HOST_CHANGED) {
             const messageData: HostChangedMessageData = matchData.data;
             setHostId(messageData.userId);
+        } else if (matchData.op_code === OpCode.STAGE_CHANGED) {
+            const messageData: StageChangedMessageData = matchData.data;
+            if (messageData.stage === 'inProgress') {
+                setCurrentState('game');
+            } else if (messageData.stage === 'results') {
+                setCurrentState('results');
+            } else if (messageData.stage === 'gettingReady') {
+                setCurrentState('lobby');
+            }
+        } else if (matchData.op_code === OpCode.NEXT_STEP) {
+            setStepData(matchData.data);
+        } else if (matchData.op_code === OpCode.RESULTS) {
+            setResults(matchData.data);
         }
     };
 
@@ -160,6 +177,14 @@ function Game() {
         }).catch(handleError);
     };
 
+    const onStart = () => {
+        nakamaHelper.sendMatchMessage(OpCode.START_GAME, {});
+    };
+
+    const onInput = (step: number, input: string, ready: boolean) => {
+        nakamaHelper.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input: input.trim(), ready});
+    };
+
     useEffect(() => {
         nakamaHelper.onDisconnect = onDisconnect;
         nakamaHelper.onError = onError;
@@ -187,7 +212,14 @@ function Game() {
                     onKick={onKick}
                     onBack={onLeave}
                     onInvite={onInvite}
+                    onStart={onStart}
                 />
+            )}
+            {currentState === 'game' && (
+                <GameSteps stepData={stepData} onInput={onInput} />
+            )}
+            {currentState === 'results' && (
+                <GameResults results={results} players={players} />
             )}
         </>
     );
@@ -295,10 +327,11 @@ interface LobbyProps {
     selfId: string,
     onKick: (userId: string) => void,
     onBack: () => void,
-    onInvite: () => void
+    onInvite: () => void,
+    onStart: () => void
 }
 
-function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) {
+function Lobby({players, hostId, selfId, onKick, onBack, onInvite, onStart}: LobbyProps) {
     const { t } = useTranslation();
     const [confirmKick, setConfirmKick] = useState<PlayerInfo | null>(null);
     const onCancelKick = () => {
@@ -353,7 +386,7 @@ function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) 
                         <Icon name='chain' />
                         {t('gameInviteButton')}
                     </Button>
-                    <Button disabled={!(selfId && hostId && selfId === hostId)} primary>
+                    <Button disabled={!(selfId && hostId && selfId === hostId)} primary onClick={onStart}>
                         {t('gameStartButton')}
                         <Icon name='arrow right' />
                     </Button>
@@ -373,6 +406,123 @@ function Lobby({players, hostId, selfId, onKick, onBack, onInvite}: LobbyProps) 
                     </Segment>
                 )}
             />
+        </Container>
+    );
+}
+
+interface GameStepsProps {
+    stepData: any,
+    onInput: (step: number, input: string, ready: boolean) => void
+}
+
+function GameSteps({stepData, onInput}: GameStepsProps) {
+    const [timerState, timerReset] = useCountdownTimer(0, false);
+    const [sent, setSent] = useState<boolean>(false);
+    const [input, setInput] = useState<string>('');
+
+    const onButtonClick = () => {
+        const newSent = !sent;
+        setSent(newSent);
+        onInput(stepData.step, input, newSent);
+    };
+
+    const onInputChange = (event: React.ChangeEvent, data: InputOnChangeData) => {
+        const newInput = data.value.replaceAll(/[^\p{L}\p{Zs}\p{P}\p{N}]/gu, '').replaceAll(/\s+/gu, ' ');
+        setInput(newInput);
+        onInput(stepData.step, newInput, sent);
+    };
+
+    useEffect(() => {
+        setSent(false);
+        setInput('');
+        if (stepData) {
+            timerReset(stepData.timeout);
+        }
+    }, [stepData?.step]);
+
+    if (!stepData) {
+        return null;
+    }
+
+    return (
+        <Container>
+            <Grid padded stackable>
+                <Grid.Row>
+                    <Grid.Column>
+                        <span>{stepData.step} / {stepData.last}</span>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row>
+                    <Grid.Column>
+                        <Progress total={timerState.duration} value={timerState.passed} size='tiny' />
+                    </Grid.Column>
+                </Grid.Row>
+                {stepData && stepData.lines && (
+                    <Grid.Row>
+                        <Grid.Column>
+                            {stepData.lines.map((line: string) => (<>{line}<br/></>))}
+                        </Grid.Column>
+                    </Grid.Row>
+                )}
+                {stepData && stepData.step > 0 && (
+                    <Grid.Row columns={2}>
+                        <Grid.Column width={13} >
+                            <Input
+                                disabled={sent}
+                                fluid
+                                onChange={onInputChange}
+                                value={input}
+                                maxLength={100}
+                                placeholder={stepData.step === 1 ? 'Think up the first line' : 'Continue lines above with your line'}
+                            />
+                        </Grid.Column>
+                        <Grid.Column width={3}>
+                            <Button
+                                fluid
+                                icon={sent?'edit':'send'}
+                                content={sent?'Edit':'Send'}
+                                onClick={onButtonClick}
+                            />
+                        </Grid.Column>
+                    </Grid.Row>
+                )}
+            </Grid>
+        </Container>
+    );
+}
+
+interface GameResultsProps {
+    results: any,
+    players: PlayerInfo[]
+}
+
+function GameResults({results, players}: GameResultsProps) {
+    return (
+        <Container>
+            <Grid padded>
+                {results && players.map(player => (
+                    <Grid.Row columns={2}>
+                        {results[player.id] && (
+                            <>
+                                <Grid.Column textAlign="right" width={3}>
+                                    {results[player.id] && results[player.id].map((line: {author: string, input: string}) => (
+                                        <>
+                                            {players.find(p => p.id === line.author)?.name || '???'}<br/>
+                                        </>
+                                    ))}
+                                </Grid.Column>
+                                <Grid.Column textAlign="left" width={13}>
+                                    {results[player.id] && results[player.id].map((line: {author: string, input: string}) => (
+                                        <>
+                                            {line.input}<br/>
+                                        </>
+                                    ))}
+                                </Grid.Column>
+                            </>
+                        )}
+                    </Grid.Row>
+                ))}
+            </Grid>
         </Container>
     );
 }

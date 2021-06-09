@@ -37,19 +37,57 @@ let createMatchRpc: nkruntime.RpcFunction = function (ctx: nkruntime.Context, lo
 
 const minPlayers: number = 2;
 const maxPlayers: number = 16;
-
-type Stage = 'gettingReady' | 'inProgress' | 'results';
-type Mode = 'sequential' | 'parallel';
+const zeroStepDuration: number = 3000;
+const normalStepDuration: number = 120000;
 
 interface GameState {
     stage: Stage,
-    settings: {
-        mode: Mode
-    },
+    settings: {},
     presences: {[userId: string]: nkruntime.Presence},
     host: nkruntime.Presence | null,
     playersJoinOrder: string[],
-    kickedPlayerIds: {[userId: string]: true}
+    kickedPlayerIds: {[userId: string]: true},
+    gameResults: {[userId: string]: {
+        author: string, // user id
+        input: string // user input
+    }[]},
+    lastStep: number,
+    currentStep: number,
+    nextStepAt: number,
+    playersReadyForNextStep: {[userId: string]: true},
+    playerToResult: {[userId: string]: string[]}
+}
+
+function genRoundSteps(gameState: GameState) {
+    const playersIds: string[] = Object.keys(gameState.presences);
+    const playersCount: number = playersIds.length;
+    const m = genRandomMatrix(playersCount);
+    
+    // another matrix
+    const m2 = new Matrix(m.n);
+    for (let i = 0; i < m2.n; ++i) {
+        for (let j = 0; j < m2.n; ++j) {
+            m2.setValueAt(i, m.getValueAt(i, j), j);
+        }
+    }
+
+    gameState.playerToResult = {};
+    gameState.gameResults = {};
+
+    for (let i = 0; i < m2.n; ++i) {
+        for (let j = 0; j < m2.n; ++j) {
+            const playerId = playersIds[j];
+            if (!gameState.playerToResult[playerId]) {
+                gameState.playerToResult[playerId] = new Array(playersCount);
+            }
+            gameState.playerToResult[playerId][i] = playersIds[m2.getValueAt(i, j)];
+
+            if (!gameState.gameResults[playerId]) {
+                gameState.gameResults[playerId] = new Array(playersCount);
+            }
+            gameState.gameResults[playerId][i] = {author: playersIds[m.getValueAt(i, j)], input: ''};
+        }
+    }
 }
 
 function decodeMessageData<T>(data: string): T | undefined {
@@ -65,13 +103,17 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
 
     const initialState: GameState = {
         stage: 'gettingReady',
-        settings: {
-            mode: 'parallel'
-        },
+        settings: {},
         presences: {},
         host: null,
         playersJoinOrder: [],
-        kickedPlayerIds: {}
+        kickedPlayerIds: {},
+        gameResults: {},
+        lastStep: NaN,
+        currentStep: NaN,
+        nextStepAt: NaN,
+        playersReadyForNextStep: {},
+        playerToResult: {}
     };
 
     return {
@@ -156,6 +198,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
     }
 
     const gameState: GameState = state as GameState;
+    const time: number = Date.now();
 
     if (!gameState.host) {
         for (const userId of gameState.playersJoinOrder) {
@@ -181,7 +224,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 continue;
             }
             const data = decodeMessageData<KickPlayerMessageData>(message.data);
-            if (!data || !data.userId) {
+            if (!data || typeof data !== 'object' || !data.userId || typeof data.userId !== 'string') {
                 // broken message data
                 continue;
             }
@@ -205,9 +248,73 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 // wrong stage
                 continue;
             }
+            const playersCount: number = Object.keys(gameState.presences).length;
+            if (playersCount < minPlayers) {
+                // not enough players
+                continue;
+            }
             logger.debug('Starting game');
             gameState.stage = 'inProgress';
-            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({}));
+            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({stage:gameState.stage} as StageChangedMessageData));
+            gameState.lastStep = playersCount;
+            gameState.currentStep = 0;
+            gameState.nextStepAt = time + zeroStepDuration;
+            for (const userId of Object.keys(gameState.presences)) {
+                dispatcher.broadcastMessage(OpCode.NEXT_STEP, JSON.stringify({step:gameState.currentStep,last:gameState.lastStep,timeout:zeroStepDuration}), [gameState.presences[userId]]);
+            }
+        } else if (message.opCode === OpCode.PLAYER_INPUT) {
+            if (gameState.stage !== 'inProgress') {
+                // wrong stage
+                continue;
+            }
+            const data = decodeMessageData<{step: number, input: string, ready: boolean}>(message.data);
+            if (!data || typeof data !== 'object' || !data.input || typeof data.input !== 'string') {
+                // broken message data
+                continue;
+            }
+            if (gameState.currentStep !== 0 && gameState.currentStep !== data.step) {
+                // wrong step
+                continue;
+            }
+            // TODO: process input
+            const resultId = gameState.playerToResult[message.sender.userId][gameState.currentStep - 1];
+            gameState.gameResults[resultId][gameState.currentStep - 1].input = data.input;
+            if (data.ready) {
+                gameState.playersReadyForNextStep[message.sender.userId] = true;
+            } else if (gameState.playersReadyForNextStep[message.sender.userId]) {
+                delete gameState.playersReadyForNextStep[message.sender.userId];
+            }
+        }
+    }
+
+    if (gameState.stage === 'inProgress') {
+        if (
+            !isNaN(gameState.currentStep) &&
+            !isNaN(gameState.nextStepAt) &&
+            (time >= gameState.nextStepAt ||
+                Object.keys(gameState.playersReadyForNextStep).length >= Object.keys(gameState.presences).length)
+        ) {
+            if (gameState.currentStep === gameState.lastStep) {
+                logger.debug('Game results');
+                gameState.stage = 'results';
+                dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({stage:gameState.stage} as StageChangedMessageData));
+                dispatcher.broadcastMessage(OpCode.RESULTS, JSON.stringify(gameState.gameResults));
+            } else {
+                // TODO: next step
+                gameState.currentStep += 1;
+                gameState.nextStepAt = time + normalStepDuration;
+                gameState.playersReadyForNextStep = {};
+
+                if (gameState.currentStep === 1) {
+                    genRoundSteps(gameState);
+                }
+
+                for (const userId of Object.keys(gameState.presences)) {
+                    const resultId = gameState.playerToResult[userId][gameState.currentStep - 1];
+                    const lines = gameState.gameResults[resultId].filter(line => !!line.input).map((line, i, array) => i === array.length - 1 ? line.input : line.input.replace(/[^\s]/g, 'X'));
+                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, JSON.stringify({step:gameState.currentStep,last:gameState.lastStep,timeout:normalStepDuration,lines}), [gameState.presences[userId]]);
+                }
+            }
         }
     }
 

@@ -1,11 +1,14 @@
 // This file have to be in sync both on server and client
 
+type Stage = 'gettingReady' | 'inProgress' | 'results';
+
 // NOTE: OpCode can't be equal to 0
 enum OpCode {
     // initiated by server
     HOST_CHANGED = 6,
     STAGE_CHANGED = 1,
     NEXT_STEP = 5,
+    RESULTS = 8,
     
     // initiated by players
     KICK_PLAYER = 2, // initiated by host player on gettig started stage
@@ -24,4 +27,8 @@ interface HostChangedMessageData {
 
 interface StartGameMessageData {
     
+}
+
+interface StageChangedMessageData {
+    stage: Stage
 }
