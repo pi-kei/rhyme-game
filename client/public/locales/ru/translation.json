@@ -12,5 +12,11 @@
     "confirmKickYesButton": "Ага",
     "confirmKickHeader": "Выкинуть непроверенного засланца?",
     "linkCopiedHeader": "Скопировано",
-    "linkCopiedContent": "Ссылка скопирована в буфер обмена"
+    "linkCopiedContent": "Ссылка скопирована в буфер обмена",
+    "gameStepsFirstLine": "Выдумай первую строчку",
+    "gameStepsContinue": "Продолжи строки выше своей строкой",
+    "gameStepsSendButton": "Отправить",
+    "gameStepsEditButton": "Изменить",
+    "gameResultsNextButton": "Далее",
+    "gameResultsNewRoundButton": "Сыграть ещё разок"
 }

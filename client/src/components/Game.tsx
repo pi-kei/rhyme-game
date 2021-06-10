@@ -139,7 +139,7 @@ function Game() {
         } else if (matchData.op_code === OpCode.NEXT_STEP) {
             setStepData(matchData.data);
         } else if (matchData.op_code === OpCode.RESULTS) {
-            setCurrentPoetry(-1);
+            setCurrentPoetry(0);
             setCurrentPoetryLine(-1);
             setResults(matchData.data);
         } else if (matchData.op_code === OpCode.REVEAL_RESULT) {
@@ -440,6 +440,7 @@ interface GameStepsProps {
 }
 
 function GameSteps({stepData, onInput}: GameStepsProps) {
+    const { t } = useTranslation();
     const [timerState, timerReset] = useCountdownTimer(0, false);
     const [sent, setSent] = useState<boolean>(false);
     const [input, setInput] = useState<string>('');
@@ -497,14 +498,14 @@ function GameSteps({stepData, onInput}: GameStepsProps) {
                                 onChange={onInputChange}
                                 value={input}
                                 maxLength={100}
-                                placeholder={stepData.step === 1 ? 'Think up the first line' : 'Continue lines above with your line'}
+                                placeholder={t(stepData.step === 1 ? 'gameStepsFirstLine' : 'gameStepsContinue')}
                             />
                         </Grid.Column>
                         <Grid.Column width={3}>
                             <Button
                                 fluid
                                 icon={sent?'edit':'send'}
-                                content={sent?'Edit':'Send'}
+                                content={t(sent?'gameStepsEditButton':'gameStepsSendButton')}
                                 onClick={onButtonClick}
                             />
                         </Grid.Column>
@@ -527,6 +528,7 @@ interface GameResultsProps {
 }
 
 function GameResults({results, players, hostId, selfId, currentPoetry, currentPoetryLine, onRevealResult, onNewRound}: GameResultsProps) {
+    const { t } = useTranslation();
     const [poeties, setPoetries] = useState<any[]>([]);
 
     const onRevealNextResult = () => {
@@ -591,13 +593,13 @@ function GameResults({results, players, hostId, selfId, currentPoetry, currentPo
                     <Grid.Column textAlign="center">
                         {!(currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1) && (
                             <Button primary onClick={onRevealNextResult} disabled={!(selfId && hostId && selfId === hostId)}>
-                                {'Next'}
+                                {t('gameResultsNextButton')}
                                 <Icon name="arrow right"/>
                             </Button>
                         )}
                         {(currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1) && (
                             <Button primary onClick={onNewRound} disabled={!(selfId && hostId && selfId === hostId)}>
-                                {'Play one more time'}
+                                {t('gameResultsNewRoundButton')}
                                 <Icon name="arrow right"/>
                             </Button>
                         )}

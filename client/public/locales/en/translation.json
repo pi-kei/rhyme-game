@@ -12,5 +12,11 @@
     "confirmKickYesButton": "Yes",
     "confirmKickHeader": "Kick player?",
     "linkCopiedHeader": "Copied",
-    "linkCopiedContent": "Link is copied to clipboard"
+    "linkCopiedContent": "Link is copied to clipboard",
+    "gameStepsFirstLine": "Think up the first line",
+    "gameStepsContinue": "Continue lines above with your line",
+    "gameStepsSendButton": "Send",
+    "gameStepsEditButton": "Edit",
+    "gameResultsNextButton": "Next",
+    "gameResultsNewRoundButton": "Play one more time"
 }
