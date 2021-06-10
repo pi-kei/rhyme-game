@@ -38,7 +38,7 @@ let createMatchRpc: nkruntime.RpcFunction = function (ctx: nkruntime.Context, lo
 const minPlayers: number = 2;
 const maxPlayers: number = 16;
 const zeroStepDuration: number = 3000;
-const normalStepDuration: number = 120000;
+const normalStepDuration: number = 180000;
 
 interface GameState {
     stage: Stage,
@@ -284,6 +284,35 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             } else if (gameState.playersReadyForNextStep[message.sender.userId]) {
                 delete gameState.playersReadyForNextStep[message.sender.userId];
             }
+        } else if (message.opCode === OpCode.REVEAL_RESULT) {
+            if (!gameState.host || gameState.host.userId !== message.sender.userId) {
+                // not a host player
+                continue;
+            }
+            if (gameState.stage !== 'results') {
+                // wrong stage
+                continue;
+            }
+            dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, message.data);
+        } else if (message.opCode === OpCode.NEW_ROUND) {
+            if (!gameState.host || gameState.host.userId !== message.sender.userId) {
+                // not a host player
+                continue;
+            }
+            if (gameState.stage !== 'results') {
+                // wrong stage
+                continue;
+            }
+            logger.debug('Starting new round');
+            gameState.kickedPlayerIds = {};
+            gameState.gameResults = {};
+            gameState.lastStep = NaN;
+            gameState.currentStep = NaN;
+            gameState.nextStepAt = NaN;
+            gameState.playersReadyForNextStep = {};
+            gameState.playerToResult = {};
+            gameState.stage = 'gettingReady';
+            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({stage:gameState.stage} as StageChangedMessageData));
         }
     }
 

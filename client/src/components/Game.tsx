@@ -1,4 +1,4 @@
-import { Button, Confirm, Container, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Segment } from "semantic-ui-react";
+import { Button, Confirm, Container, Divider, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Segment } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { useEffect, useReducer, useRef, useState } from "react";
@@ -61,6 +61,8 @@ function Game() {
 
     const [stepData, setStepData] = useState<any>();
     const [results, setResults] = useState<any>();
+    const [currentPoetry, setCurrentPoetry] = useState<number>(-1);
+    const [currentPoetryLine, setCurrentPoetryLine] = useState<number>(-1);
 
     const handleError = (error: any) => {
         if (error instanceof Error) {
@@ -137,7 +139,12 @@ function Game() {
         } else if (matchData.op_code === OpCode.NEXT_STEP) {
             setStepData(matchData.data);
         } else if (matchData.op_code === OpCode.RESULTS) {
+            setCurrentPoetry(-1);
+            setCurrentPoetryLine(-1);
             setResults(matchData.data);
+        } else if (matchData.op_code === OpCode.REVEAL_RESULT) {
+            setCurrentPoetry(matchData.data.poetry);
+            setCurrentPoetryLine(matchData.data.poetryLine);
         }
     };
 
@@ -185,6 +192,14 @@ function Game() {
         nakamaHelper.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input: input.trim(), ready});
     };
 
+    const onRevealResult = (poetry: number, poetryLine: number) => {
+        nakamaHelper.sendMatchMessage(OpCode.REVEAL_RESULT, {poetry,poetryLine});
+    };
+
+    const onNewRound = () => {
+        nakamaHelper.sendMatchMessage(OpCode.NEW_ROUND, {});
+    };
+
     useEffect(() => {
         nakamaHelper.onDisconnect = onDisconnect;
         nakamaHelper.onError = onError;
@@ -219,7 +234,16 @@ function Game() {
                 <GameSteps stepData={stepData} onInput={onInput} />
             )}
             {currentState === 'results' && (
-                <GameResults results={results} players={players} />
+                <GameResults
+                    results={results}
+                    players={players}
+                    hostId={hostId}
+                    selfId={nakamaHelper.selfId || ''}
+                    currentPoetry={currentPoetry}
+                    currentPoetryLine={currentPoetryLine}
+                    onRevealResult={onRevealResult}
+                    onNewRound={onNewRound}
+                />
             )}
         </>
     );
@@ -493,35 +517,92 @@ function GameSteps({stepData, onInput}: GameStepsProps) {
 
 interface GameResultsProps {
     results: any,
-    players: PlayerInfo[]
+    players: PlayerInfo[],
+    hostId: string,
+    selfId: string,
+    currentPoetry: number,
+    currentPoetryLine: number,
+    onRevealResult: (poetry: number, poetryLine: number) => void,
+    onNewRound: () => void
 }
 
-function GameResults({results, players}: GameResultsProps) {
+function GameResults({results, players, hostId, selfId, currentPoetry, currentPoetryLine, onRevealResult, onNewRound}: GameResultsProps) {
+    const [poeties, setPoetries] = useState<any[]>([]);
+
+    const onRevealNextResult = () => {
+        if (currentPoetry < 0 || (currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1)) {
+            onRevealResult(currentPoetry + 1, -1);
+        } else {
+            onRevealResult(currentPoetry, currentPoetryLine + 1);
+        }
+    };
+
+    useEffect(() => {
+        if (!results) {
+            setPoetries([]);
+            return;
+        }
+        setPoetries(players.map(p => {
+            if (!results[p.id]) {
+                return undefined;
+            }
+            return results[p.id].map((line: {author: string, input: string}) => {
+                const author = players.find(p2 => p2.id === line.author);
+                return {
+                    playerId: line.author,
+                    avatar: author?.avatar || '',
+                    name: author?.name || '???',
+                    text: line.input
+                };
+            });
+        }).filter(poetry => poetry && poetry.length));
+    }, [results, players]);
+
     return (
         <Container>
             <Grid padded>
-                {results && players.map(player => (
-                    <Grid.Row columns={2}>
-                        {results[player.id] && (
-                            <>
-                                <Grid.Column textAlign="right" width={3}>
-                                    {results[player.id] && results[player.id].map((line: {author: string, input: string}) => (
-                                        <>
-                                            {players.find(p => p.id === line.author)?.name || '???'}<br/>
-                                        </>
-                                    ))}
-                                </Grid.Column>
-                                <Grid.Column textAlign="left" width={13}>
-                                    {results[player.id] && results[player.id].map((line: {author: string, input: string}) => (
-                                        <>
-                                            {line.input}<br/>
-                                        </>
-                                    ))}
-                                </Grid.Column>
-                            </>
+                <Grid.Row>
+                    <Grid.Column>
+                        {currentPoetry >= 0 && (<>{currentPoetry+1} / {poeties.length}</>)}
+                    </Grid.Column>
+                </Grid.Row>
+                <Divider horizontal>∗ ∗ ∗</Divider>
+                {currentPoetry >= 0 && poeties[currentPoetry] && (
+                    <>
+                        <Grid.Row>
+                            <Grid.Column>
+                                {poeties[currentPoetry].map((line: {playerId: string, avatar: string, name: string, text: string}, index: number) => {
+                                    if (index > currentPoetryLine) {
+                                        return null;
+                                    }
+                                    return (
+                                        <div key={`poetry-line-${line.playerId}`}>
+                                            <div>{line.avatar && (<Image avatar src={line.avatar} />)}{line.name}:</div>
+                                            <div className="poetry-line">{line.text}</div>
+                                        </div>
+                                    );
+                                })}
+                            </Grid.Column>
+                        </Grid.Row>
+                        <Divider horizontal>∗ ∗ ∗</Divider>
+                    </>
+                )}
+                <Grid.Row>
+                    <Grid.Column textAlign="center">
+                        {!(currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1) && (
+                            <Button primary onClick={onRevealNextResult} disabled={!(selfId && hostId && selfId === hostId)}>
+                                {'Next'}
+                                <Icon name="arrow right"/>
+                            </Button>
                         )}
-                    </Grid.Row>
-                ))}
+                        {(currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1) && (
+                            <Button primary onClick={onNewRound} disabled={!(selfId && hostId && selfId === hostId)}>
+                                {'Play one more time'}
+                                <Icon name="arrow right"/>
+                            </Button>
+                        )}
+                    </Grid.Column>
+                </Grid.Row>
             </Grid>
         </Container>
     );
