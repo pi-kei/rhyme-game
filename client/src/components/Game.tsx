@@ -159,7 +159,7 @@ function Game() {
         if (presences && presences.length) {
             nakamaHelper.getUsers(presences.map((p: nakamajs.Presence) => p.user_id))
                 .then((users: nakamajs.User[]) => {
-                    setPlayers(toPlayerInfo(users));
+                    setPlayers(prevPlayers => prevPlayers.concat(toPlayerInfo(users)));
                 })
                 .catch(handleError);
         }
