@@ -54,6 +54,7 @@ function Game() {
     const { id: gameId } = useParams<{id: string | undefined}>();
     const history = useHistory();
     const {appendMessage} = useAlertContext();
+    const nakamaHelperRef = useRef(nakamaHelper);
 
     const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'|'results'>('login');
     const [players, setPlayers] = useState<PlayerInfo[]>([]);
@@ -84,12 +85,12 @@ function Game() {
     };
 
     const onLogin = (customId: string, userName: string, avatar: string) => {
-        nakamaHelper.auth(customId, storage.getItem('nakamaToken'))
+        nakamaHelperRef.current.auth(customId, storage.getItem('nakamaToken'))
             .then((jwt: string) => {
                 storage.setItem('nakamaToken', jwt);
-                return nakamaHelper.updateAccount(userName, avatar);
+                return nakamaHelperRef.current.updateAccount(userName, avatar);
             })
-            .then(() => nakamaHelper.joinOrCreateMatch(gameId))
+            .then(() => nakamaHelperRef.current.joinOrCreateMatch(gameId))
             .then(onMatchJoined)
             .catch(handleError);
     };
@@ -113,7 +114,7 @@ function Game() {
         if (leaves && leaves.length && !(joins && joins.length)) {
             setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves));
         } else if (joins && joins.length) {
-            nakamaHelper.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
+            nakamaHelperRef.current.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
                 .then((users: nakamajs.User[]) => {
                     setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves) : prevPlayers).concat(toPlayerInfo(users)));
                 })
@@ -157,7 +158,7 @@ function Game() {
 
         const presences = match.presences;
         if (presences && presences.length) {
-            nakamaHelper.getUsers(presences.map((p: nakamajs.Presence) => p.user_id))
+            nakamaHelperRef.current.getUsers(presences.map((p: nakamajs.Presence) => p.user_id))
                 .then((users: nakamajs.User[]) => {
                     setPlayers(prevPlayers => prevPlayers.concat(toPlayerInfo(users)));
                 })
@@ -166,7 +167,7 @@ function Game() {
     };
 
     const onKick = (userId: string) => {
-        nakamaHelper.sendMatchMessage(OpCode.KICK_PLAYER, {userId} as KickPlayerMessageData)
+        nakamaHelperRef.current.sendMatchMessage(OpCode.KICK_PLAYER, {userId} as KickPlayerMessageData)
             .catch(handleError);
     };
 
@@ -174,7 +175,7 @@ function Game() {
         setCurrentState('login');
         setPlayers([]);
         setHostId('');
-        nakamaHelper.leaveCurrentMatch()
+        nakamaHelperRef.current.leaveCurrentMatch()
             .catch(handleError);
     };
 
@@ -185,32 +186,32 @@ function Game() {
     };
 
     const onStart = () => {
-        nakamaHelper.sendMatchMessage(OpCode.START_GAME, {});
+        nakamaHelperRef.current.sendMatchMessage(OpCode.START_GAME, {});
     };
 
     const onInput = (step: number, input: string, ready: boolean) => {
-        nakamaHelper.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input: input.trim(), ready});
+        nakamaHelperRef.current.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input: input.trim(), ready});
     };
 
     const onRevealResult = (poetry: number, poetryLine: number) => {
-        nakamaHelper.sendMatchMessage(OpCode.REVEAL_RESULT, {poetry,poetryLine});
+        nakamaHelperRef.current.sendMatchMessage(OpCode.REVEAL_RESULT, {poetry,poetryLine});
     };
 
     const onNewRound = () => {
-        nakamaHelper.sendMatchMessage(OpCode.NEW_ROUND, {});
+        nakamaHelperRef.current.sendMatchMessage(OpCode.NEW_ROUND, {});
     };
 
     useEffect(() => {
-        nakamaHelper.onDisconnect = onDisconnect;
-        nakamaHelper.onError = onError;
-        nakamaHelper.onMatchPresence = onMatchPresence;
-        nakamaHelper.onMatchData = onMatchData;
+        nakamaHelperRef.current.onDisconnect = onDisconnect;
+        nakamaHelperRef.current.onError = onError;
+        nakamaHelperRef.current.onMatchPresence = onMatchPresence;
+        nakamaHelperRef.current.onMatchData = onMatchData;
 
         return () => {
-            nakamaHelper.onDisconnect = undefined;
-            nakamaHelper.onError = undefined;
-            nakamaHelper.onMatchPresence = undefined;
-            nakamaHelper.onMatchData = undefined;
+            nakamaHelperRef.current.onDisconnect = undefined;
+            nakamaHelperRef.current.onError = undefined;
+            nakamaHelperRef.current.onMatchPresence = undefined;
+            nakamaHelperRef.current.onMatchData = undefined;
         };
     }, []);
 
@@ -223,7 +224,7 @@ function Game() {
                 <Lobby
                     players={players}
                     hostId={hostId}
-                    selfId={nakamaHelper.selfId || ''}
+                    selfId={nakamaHelperRef.current.selfId || ''}
                     onKick={onKick}
                     onBack={onLeave}
                     onInvite={onInvite}
@@ -238,7 +239,7 @@ function Game() {
                     results={results}
                     players={players}
                     hostId={hostId}
-                    selfId={nakamaHelper.selfId || ''}
+                    selfId={nakamaHelperRef.current.selfId || ''}
                     currentPoetry={currentPoetry}
                     currentPoetryLine={currentPoetryLine}
                     onRevealResult={onRevealResult}
