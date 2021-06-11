@@ -453,7 +453,7 @@ function GameSteps({stepData, onInput}: GameStepsProps) {
     };
 
     const onInputChange = (event: React.ChangeEvent, data: InputOnChangeData) => {
-        const newInput = data.value.replaceAll(/[^\p{L}\p{Zs}\p{P}\p{N}]/gu, '').replaceAll(/\s+/gu, ' ');
+        const newInput = data.value.replaceAll(/[^\p{L}\p{Zs}\p{P}]/gu, '').replaceAll(/\s+/gu, ' ');
         setInput(newInput);
         onInput(stepData.step, newInput, sent);
     };
