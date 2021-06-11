@@ -1,4 +1,4 @@
-import { Button, Confirm, Container, Divider, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Segment } from "semantic-ui-react";
+import { Button, Confirm, Container, Divider, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Ref, Segment } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { useEffect, useReducer, useRef, useState } from "react";
@@ -530,6 +530,7 @@ interface GameResultsProps {
 function GameResults({results, players, hostId, selfId, currentPoetry, currentPoetryLine, onRevealResult, onNewRound}: GameResultsProps) {
     const { t } = useTranslation();
     const [poeties, setPoetries] = useState<any[]>([]);
+    const poetryElementRef = useRef(null);
 
     const onRevealNextResult = () => {
         if (currentPoetry < 0 || (currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1)) {
@@ -571,21 +572,24 @@ function GameResults({results, players, hostId, selfId, currentPoetry, currentPo
                 <Divider horizontal>∗ ∗ ∗</Divider>
                 {currentPoetry >= 0 && poeties[currentPoetry] && (
                     <>
+                        <Ref innerRef={poetryElementRef}>
                         <Grid.Row>
                             <Grid.Column>
                                 {poeties[currentPoetry].map((line: {playerId: string, avatar: string, name: string, text: string}, index: number) => {
-                                    if (index > currentPoetryLine) {
-                                        return null;
-                                    }
                                     return (
-                                        <div key={`poetry-line-${line.playerId}`}>
+                                            <div className="poetry-line-block" key={`poetry-line-${line.playerId}`}>
+                                                {(index <= currentPoetryLine + 1) ? (
+                                                    <>
                                             <div>{line.avatar && (<Image avatar src={line.avatar} />)}{line.name}:</div>
-                                            <div className="poetry-line">{line.text}</div>
+                                                        <Segment className="poetry-line">{index <= currentPoetryLine ? line.text : '...'}</Segment>
+                                                    </>
+                                                ) : null}
                                         </div>
                                     );
                                 })}
                             </Grid.Column>
                         </Grid.Row>
+                        </Ref>
                         <Divider horizontal>∗ ∗ ∗</Divider>
                     </>
                 )}

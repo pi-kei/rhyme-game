@@ -18,11 +18,20 @@
     flex: 1 1 0%
 }
 
-.poetry-line {
-    margin-left: 3rem;
+.ui.segment.poetry-line {
+    margin-top: 0;
+    margin-left: 2rem;
     text-align-last: right;
 }
 
-.poetry-line::first-line {
+.ui.segment.poetry-line::first-line {
     text-align-last: left;
+}
+
+.poetry-line-block {
+    margin-top: 1rem;
+}
+
+.poetry-line-block:first-child {
+    margin-top: 0;
 }
