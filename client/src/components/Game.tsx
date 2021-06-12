@@ -12,6 +12,7 @@ import './Game.css';
 import { useTranslation } from "react-i18next";
 import LangSelector from "./LangSelector";
 import { useCountdownTimer, CountdownTimerState } from "./Timer";
+import saveImage from "../saveImage";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -541,6 +542,22 @@ function GameResults({ resultsData, players, hostId, selfId, currentPoetry, curr
         }
     };
 
+    const onSave = () => {
+        if (!poetryElementRef.current) {
+            return;
+        }
+
+        saveImage(poeties[currentPoetry]).then(canvas => {
+            const uri = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.href = uri;
+            link.download = `${nanoid()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    };
+
     useEffect(() => {
         if (!resultsData) {
             setPoetries([]);
@@ -600,6 +617,12 @@ function GameResults({ resultsData, players, hostId, selfId, currentPoetry, curr
                 )}
                 <Grid.Row>
                     <Grid.Column textAlign="center">
+                        {isPoetryFullyRevealed && (
+                            <Button primary onClick={onSave}>
+                                <Icon name="photo"/>
+                                {t('gameResultsSaveButton')}
+                            </Button>
+                        )}
                         {isHost && !isAllPoetriesRevealed && (
                             <Button primary onClick={onRevealNextResult}>
                                 {t('gameResultsNextButton')}

@@ -17,6 +17,7 @@
     "gameStepsContinue": "Continue lines above with your line",
     "gameStepsSendButton": "Send",
     "gameStepsEditButton": "Edit",
+    "gameResultsSaveButton": "Save",
     "gameResultsNextButton": "Next",
     "gameResultsNewRoundButton": "Play one more time"
 }
