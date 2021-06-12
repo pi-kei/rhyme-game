@@ -2,7 +2,8 @@
   "files": [
     "./src/main.ts",
     "./src/common.ts",
-    "./src/randomMatrix.ts"
+    "./src/randomMatrix.ts",
+    "./src/dataCoder.ts"
   ],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig.json to read more about this file */

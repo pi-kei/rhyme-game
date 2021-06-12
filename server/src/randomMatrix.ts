@@ -82,7 +82,8 @@ function kuhn(n: number, hasEdge: (v1: number, v2: number) => boolean): Array<nu
 }
 
 /**
- * Returns "random" matrix.
+ * Returns "random" matrix aka Latin square with normalized first row
+ * See https://en.wikipedia.org/wiki/Latin_square
  * 
  * @param {number} n Number of players
  * @returns {Matrix} "Random" matrix

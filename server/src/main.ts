@@ -1,8 +1,6 @@
 const moduleName = 'rhyme-game_match_handler';
 
 let InitModule: nkruntime.InitModule = function(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, initializer: nkruntime.Initializer) {
-    initializer.registerRtBefore('MatchCreate', beforeCreateMatch);
-
     initializer.registerRpc('create_match_server_authoritative', createMatchRpc);
     
     initializer.registerMatch(moduleName, {
@@ -15,14 +13,6 @@ let InitModule: nkruntime.InitModule = function(ctx: nkruntime.Context, logger: 
     });
 
     logger.info('JavaScript logic loaded.');
-};
-
-let beforeCreateMatch: nkruntime.RtBeforeHookFunction<nkruntime.Envelope> = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, envelope: nkruntime.Envelope): nkruntime.Envelope | void {
-    logger.debug('beforeCreateMatch hook called');
-    logger.debug('Context: %s', JSON.stringify(ctx));
-    logger.debug('Envelope: %s', JSON.stringify(envelope));
-
-    return envelope;
 };
 
 let createMatchRpc: nkruntime.RpcFunction = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, payload: string): string | void {
@@ -42,7 +32,11 @@ const normalStepDuration: number = 180000;
 
 interface GameState {
     stage: Stage,
-    settings: {},
+    settings: {
+        showFullPreviousLine: boolean,
+        revealLastWordInLines: boolean,
+        revealAtMostPercent: number
+    },
     presences: {[userId: string]: nkruntime.Presence},
     host: nkruntime.Presence | null,
     playersJoinOrder: string[],
@@ -90,20 +84,16 @@ function genRoundSteps(gameState: GameState) {
     }
 }
 
-function decodeMessageData<T>(data: string): T | undefined {
-    try {
-        return JSON.parse(data) as T;
-    } catch (error) {
-        return undefined;
-    }
-}
-
 let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, params: {[key: string]: string}): {state: nkruntime.MatchState, tickRate: number, label: string} {
     logger.debug('matchInit called');
 
     const initialState: GameState = {
         stage: 'gettingReady',
-        settings: {},
+        settings: {
+            showFullPreviousLine: true,
+            revealLastWordInLines: true,
+            revealAtMostPercent: 33.0
+        },
         presences: {},
         host: null,
         playersJoinOrder: [],
@@ -184,7 +174,7 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
     if (gameState.host) {
         logger.debug('Sending HOST_CHANGED');
         // NOTE: can't specify presences. See https://github.com/heroiclabs/nakama/issues/620
-        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, JSON.stringify({ userId: gameState.host.userId } as HostChangedMessageData)/*, presences*/);
+        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host.userId } as HostChangedMessageData)/*, presences*/);
     }
     
     return {
@@ -209,7 +199,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
         }
         if (gameState.host) {
             logger.debug('Sending HOST_CHANGED');
-            dispatcher.broadcastMessage(OpCode.HOST_CHANGED, JSON.stringify({ userId: gameState.host.userId } as HostChangedMessageData));
+            dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host.userId } as HostChangedMessageData));
         }
     }
 
@@ -255,12 +245,12 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             }
             logger.debug('Starting game');
             gameState.stage = 'inProgress';
-            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({stage:gameState.stage} as StageChangedMessageData));
+            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData));
             gameState.lastStep = playersCount;
             gameState.currentStep = 0;
             gameState.nextStepAt = time + zeroStepDuration;
             for (const userId of Object.keys(gameState.presences)) {
-                dispatcher.broadcastMessage(OpCode.NEXT_STEP, JSON.stringify({step:gameState.currentStep,last:gameState.lastStep,timeout:zeroStepDuration}), [gameState.presences[userId]]);
+                dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:zeroStepDuration}), [gameState.presences[userId]]);
             }
         } else if (message.opCode === OpCode.PLAYER_INPUT) {
             if (gameState.stage !== 'inProgress') {
@@ -312,7 +302,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             gameState.playersReadyForNextStep = {};
             gameState.playerToResult = {};
             gameState.stage = 'gettingReady';
-            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({stage:gameState.stage} as StageChangedMessageData));
+            dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData));
         }
     }
 
@@ -326,10 +316,9 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             if (gameState.currentStep === gameState.lastStep) {
                 logger.debug('Game results');
                 gameState.stage = 'results';
-                dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, JSON.stringify({stage:gameState.stage} as StageChangedMessageData));
-                dispatcher.broadcastMessage(OpCode.RESULTS, JSON.stringify(gameState.gameResults));
+                dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData));
+                dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData(gameState.gameResults));
             } else {
-                // TODO: next step
                 gameState.currentStep += 1;
                 gameState.nextStepAt = time + normalStepDuration;
                 gameState.playersReadyForNextStep = {};
@@ -340,8 +329,45 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
 
                 for (const userId of Object.keys(gameState.presences)) {
                     const resultId = gameState.playerToResult[userId][gameState.currentStep - 1];
-                    const lines = gameState.gameResults[resultId].filter(line => !!line.input).map((line, i, array) => i === array.length - 1 ? line.input : line.input.replace(/[^\s]/g, 'X'));
-                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, JSON.stringify({step:gameState.currentStep,last:gameState.lastStep,timeout:normalStepDuration,lines}), [gameState.presences[userId]]);
+                    const lines = gameState.gameResults[resultId]
+                        .filter(line => !!line.input)
+                        .map((line, i, inputs) => {
+                            if (gameState.settings.showFullPreviousLine && i === inputs.length - 1) {
+                                return line.input;
+                            }
+
+                            // NOTE: Unicode classes not working. Only ru and en letters supported.
+                            const hiddenLetters = line.input.replace(/[a-zа-яё]/gui, '▮');
+
+                            logger.debug('hiddenLetters=%s', hiddenLetters);
+
+                            if (!gameState.settings.revealLastWordInLines) {
+                                return hiddenLetters;
+                            }
+
+                            const letters = line.input.match(/[a-zа-яё]/gui);
+
+                            if (!letters) {
+                                return hiddenLetters;
+                            }
+
+                            const lastWordMatch = line.input.match(/.*(^|[^a-zа-яё])([a-zа-яё]+)/ui);
+
+                            if (!lastWordMatch) {
+                                return hiddenLetters;
+                            }
+
+                            const lastWord = lastWordMatch[2];
+                            const maxLettersToReveal = Math.floor(gameState.settings.revealAtMostPercent / 100 * letters.length);
+                            let position = line.input.lastIndexOf(lastWord);
+                            
+                            if (lastWord.length > maxLettersToReveal) {
+                                position += lastWord.length - maxLettersToReveal;
+                            }
+                            
+                            return hiddenLetters.slice(0, position) + line.input.slice(position);
+                        });
+                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:normalStepDuration,lines}), [gameState.presences[userId]]);
                 }
             }
         }
