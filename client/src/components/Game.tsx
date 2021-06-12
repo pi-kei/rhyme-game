@@ -23,20 +23,32 @@ const namesConfig: NamesConfig = {
 interface PlayerInfo {
     id: string,
     name: string,
-    avatar: string
+    avatar: string,
+    left: boolean
 }
 
 function toPlayerInfo(users: nakamajs.User[]): PlayerInfo[] {
     return users.map((user: nakamajs.User) => ({
         id: user.id,
         name: user.display_name,
-        avatar: user.avatar_url
+        avatar: user.avatar_url,
+        left: false
     } as PlayerInfo));
 }
 
-function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[]) {
+function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[], markOnly?: boolean) {
+    if (markOnly) {
+        return players.map(
+            (player: PlayerInfo) => {
+                player.left = leaves.findIndex(
+                    (p: nakamajs.Presence) => p.user_id === player.id
+                ) !== -1;
+                return player;
+            }
+        );
+    }
     return players.filter(
-        (player: PlayerInfo) => leaves.findIndex(
+        (player: PlayerInfo) => !player.left && leaves.findIndex(
             (p: nakamajs.Presence) => p.user_id === player.id
         ) === -1
     );
@@ -100,6 +112,8 @@ function Game() {
         console.info("Disconnected from the server. Event:", event);
 
         setCurrentState('login');
+        setPlayers([]);
+        setHostId('');
     };
 
     const onError = (event: Event) => {
@@ -113,11 +127,11 @@ function Game() {
         const leaves = matchPresence.leaves;
 
         if (leaves && leaves.length && !(joins && joins.length)) {
-            setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves));
+            setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)));
         } else if (joins && joins.length) {
             nakamaHelperRef.current.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
                 .then((users: nakamajs.User[]) => {
-                    setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves) : prevPlayers).concat(toPlayerInfo(users)));
+                    setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)) : prevPlayers).concat(toPlayerInfo(users)));
                 })
                 .catch(handleError);
         }
@@ -137,6 +151,7 @@ function Game() {
                 setCurrentState('results');
             } else if (messageData.stage === 'gettingReady') {
                 setCurrentState('lobby');
+                setPlayers(prevPlayers => filterLeft(prevPlayers, [], false));
             }
         } else if (matchData.op_code === OpCode.NEXT_STEP) {
             setStepData(matchData.data);
@@ -214,7 +229,7 @@ function Game() {
             nakamaHelperRef.current.onMatchPresence = undefined;
             nakamaHelperRef.current.onMatchData = undefined;
         };
-    }, []);
+    });
 
     return (
         <>

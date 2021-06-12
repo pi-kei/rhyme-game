@@ -141,6 +141,7 @@ export default class NakamaHelper {
         this.socket = this.client!.createSocket(this.useSSL, true);
         this.socket.ondisconnect = (event: Event) => {
             this.socket = undefined;
+            this.matchId = undefined;
             if (this.onDisconnectHandler) {
                 this.onDisconnectHandler(event);
             }

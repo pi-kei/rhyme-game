@@ -38,7 +38,7 @@ interface GameState {
         revealAtMostPercent: number
     },
     presences: {[userId: string]: nkruntime.Presence},
-    host: nkruntime.Presence | null,
+    host: string | undefined,
     playersJoinOrder: string[],
     kickedPlayerIds: {[userId: string]: true},
     gameResults: {[userId: string]: {
@@ -95,7 +95,7 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
             revealAtMostPercent: 33.0
         },
         presences: {},
-        host: null,
+        host: undefined,
         playersJoinOrder: [],
         kickedPlayerIds: {},
         gameResults: {},
@@ -174,7 +174,7 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
     if (gameState.host) {
         logger.debug('Sending HOST_CHANGED');
         // NOTE: can't specify presences. See https://github.com/heroiclabs/nakama/issues/620
-        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host.userId } as HostChangedMessageData)/*, presences*/);
+        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData)/*, presences*/);
     }
     
     return {
@@ -193,19 +193,19 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
     if (!gameState.host) {
         for (const userId of gameState.playersJoinOrder) {
             if (gameState.presences[userId]) {
-                gameState.host = gameState.presences[userId];
+                gameState.host = userId;
                 break;
             }
         }
         if (gameState.host) {
             logger.debug('Sending HOST_CHANGED');
-            dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host.userId } as HostChangedMessageData));
+            dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData));
         }
     }
 
     for (const message of messages) {
         if (message.opCode === OpCode.KICK_PLAYER) {
-            if (!gameState.host || gameState.host.userId !== message.sender.userId) {
+            if (!gameState.host || gameState.host !== message.sender.userId) {
                 // not a host player
                 continue;
             }
@@ -230,7 +230,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             gameState.kickedPlayerIds[data.userId] = true;
             dispatcher.matchKick([gameState.presences[data.userId]]);
         } else if (message.opCode === OpCode.START_GAME) {
-            if (!gameState.host || gameState.host.userId !== message.sender.userId) {
+            if (!gameState.host || gameState.host !== message.sender.userId) {
                 // not a host player
                 continue;
             }
@@ -249,6 +249,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             gameState.lastStep = playersCount;
             gameState.currentStep = 0;
             gameState.nextStepAt = time + zeroStepDuration;
+            genRoundSteps(gameState);
             for (const userId of Object.keys(gameState.presences)) {
                 dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:zeroStepDuration}), [gameState.presences[userId]]);
             }
@@ -275,7 +276,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 delete gameState.playersReadyForNextStep[message.sender.userId];
             }
         } else if (message.opCode === OpCode.REVEAL_RESULT) {
-            if (!gameState.host || gameState.host.userId !== message.sender.userId) {
+            if (!gameState.host || gameState.host !== message.sender.userId) {
                 // not a host player
                 continue;
             }
@@ -285,7 +286,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             }
             dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, message.data);
         } else if (message.opCode === OpCode.NEW_ROUND) {
-            if (!gameState.host || gameState.host.userId !== message.sender.userId) {
+            if (!gameState.host || gameState.host !== message.sender.userId) {
                 // not a host player
                 continue;
             }
@@ -323,10 +324,6 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 gameState.nextStepAt = time + normalStepDuration;
                 gameState.playersReadyForNextStep = {};
 
-                if (gameState.currentStep === 1) {
-                    genRoundSteps(gameState);
-                }
-
                 for (const userId of Object.keys(gameState.presences)) {
                     const resultId = gameState.playerToResult[userId][gameState.currentStep - 1];
                     const lines = gameState.gameResults[resultId]
@@ -338,8 +335,6 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
 
                             // NOTE: Unicode classes not working. Only ru and en letters supported.
                             const hiddenLetters = line.input.replace(/[a-zа-яё]/gui, '∗');
-
-                            logger.debug('hiddenLetters=%s', hiddenLetters);
 
                             if (!gameState.settings.revealLastWordInLines) {
                                 return hiddenLetters;
@@ -384,15 +379,12 @@ let matchLeave: nkruntime.MatchLeaveFunction = function(ctx: nkruntime.Context, 
     const gameState: GameState = state as GameState;
 
     for (const presence of presences) {
-        if (gameState.host && gameState.host.userId === presence.userId) {
-            gameState.host = null;
+        if (gameState.host && gameState.host === presence.userId) {
+            gameState.host = undefined;
         }
         delete gameState.presences[presence.userId];
+        gameState.playersJoinOrder = gameState.playersJoinOrder.filter(userId => userId !== presence.userId);
     }
-
-    // TODO: clean gameState.playersJoinOrder
-    // TODO: what if user left when game is in progress
-    // TODO: what if host left
 
     return {
         state: gameState

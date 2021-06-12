@@ -62,7 +62,7 @@ export function useCountdownTimer(duration: number, autostart: boolean): [Countd
     useEffect(() => {
         if (!state.isPaused) {
             const intervalId = setInterval(() => {
-                console.log('setInterval', intervalId);
+                //console.log('setInterval', intervalId);
                 dispatch({type: 'update'});
             }, 1000/25);
     
