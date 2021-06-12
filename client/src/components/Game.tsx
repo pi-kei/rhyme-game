@@ -61,7 +61,7 @@ function Game() {
     const [hostId, setHostId] = useState<string>('');
 
     const [stepData, setStepData] = useState<any>();
-    const [results, setResults] = useState<any>();
+    const [resultsData, setResultsData] = useState<any>();
     const [currentPoetry, setCurrentPoetry] = useState<number>(-1);
     const [currentPoetryLine, setCurrentPoetryLine] = useState<number>(-1);
 
@@ -142,7 +142,7 @@ function Game() {
         } else if (matchData.op_code === OpCode.RESULTS) {
             setCurrentPoetry(0);
             setCurrentPoetryLine(-1);
-            setResults(matchData.data);
+            setResultsData(matchData.data);
         } else if (matchData.op_code === OpCode.REVEAL_RESULT) {
             setCurrentPoetry(matchData.data.poetry);
             setCurrentPoetryLine(matchData.data.poetryLine);
@@ -236,7 +236,7 @@ function Game() {
             )}
             {currentState === 'results' && (
                 <GameResults
-                    results={results}
+                    resultsData={resultsData}
                     players={players}
                     hostId={hostId}
                     selfId={nakamaHelperRef.current.selfId || ''}
@@ -518,7 +518,7 @@ function GameSteps({stepData, onInput}: GameStepsProps) {
 }
 
 interface GameResultsProps {
-    results: any,
+    resultsData: any,
     players: PlayerInfo[],
     hostId: string,
     selfId: string,
@@ -528,7 +528,7 @@ interface GameResultsProps {
     onNewRound: () => void
 }
 
-function GameResults({results, players, hostId, selfId, currentPoetry, currentPoetryLine, onRevealResult, onNewRound}: GameResultsProps) {
+function GameResults({ resultsData, players, hostId, selfId, currentPoetry, currentPoetryLine, onRevealResult, onNewRound}: GameResultsProps) {
     const { t } = useTranslation();
     const [poeties, setPoetries] = useState<any[]>([]);
     const poetryElementRef = useRef(null);
@@ -542,15 +542,15 @@ function GameResults({results, players, hostId, selfId, currentPoetry, currentPo
     };
 
     useEffect(() => {
-        if (!results) {
+        if (!resultsData) {
             setPoetries([]);
             return;
         }
-        setPoetries(players.map(p => {
-            if (!results[p.id]) {
+        setPoetries(resultsData.order.map((pId: string) => {
+            if (!resultsData.results[pId]) {
                 return undefined;
             }
-            return results[p.id].map((line: {author: string, input: string}) => {
+            return resultsData.results[pId].map((line: {author: string, input: string}) => {
                 const author = players.find(p2 => p2.id === line.author);
                 return {
                     playerId: line.author,
@@ -559,8 +559,12 @@ function GameResults({results, players, hostId, selfId, currentPoetry, currentPo
                     text: line.input
                 };
             });
-        }).filter(poetry => poetry && poetry.length));
-    }, [results, players]);
+        }).filter((poetry: any[]) => poetry && poetry.length));
+    }, [resultsData, players]);
+
+    const isPoetryFullyRevealed = currentPoetry >= 0 && poeties[currentPoetry] && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1;
+    const isAllPoetriesRevealed = currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1;
+    const isHost = selfId && hostId && selfId === hostId;
 
     return (
         <Container>
@@ -596,14 +600,14 @@ function GameResults({results, players, hostId, selfId, currentPoetry, currentPo
                 )}
                 <Grid.Row>
                     <Grid.Column textAlign="center">
-                        {!(currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1) && (
-                            <Button primary onClick={onRevealNextResult} disabled={!(selfId && hostId && selfId === hostId)}>
+                        {isHost && !isAllPoetriesRevealed && (
+                            <Button primary onClick={onRevealNextResult}>
                                 {t('gameResultsNextButton')}
                                 <Icon name="arrow right"/>
                             </Button>
                         )}
-                        {(currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1) && (
-                            <Button primary onClick={onNewRound} disabled={!(selfId && hostId && selfId === hostId)}>
+                        {isHost && isAllPoetriesRevealed && (
+                            <Button primary onClick={onNewRound}>
                                 {t('gameResultsNewRoundButton')}
                                 <Icon name="arrow right"/>
                             </Button>

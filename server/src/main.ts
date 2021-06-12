@@ -317,7 +317,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 logger.debug('Game results');
                 gameState.stage = 'results';
                 dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData));
-                dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData(gameState.gameResults));
+                dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData({results:gameState.gameResults, order:Object.keys(gameState.gameResults)}));
             } else {
                 gameState.currentStep += 1;
                 gameState.nextStepAt = time + normalStepDuration;
