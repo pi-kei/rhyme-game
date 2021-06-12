@@ -71,29 +71,15 @@ export default class NakamaHelper {
         }
         await this.reauth();
         if (!this.socket) {
-            this.socket = this.client.createSocket(this.useSSL, true);
-            this.socket.ondisconnect = (event: Event) => {
-                this.socket = undefined;
-                if (this.onDisconnectHandler) {
-                    this.onDisconnectHandler(event);
+            await this.createSocket();
+            if (!this.socket) {
+                this.session = undefined;
+                await this.reauth();
+                await this.createSocket();
+                if (!this.socket) {
+                    throw new Error('Connection failed');
                 }
-            };
-            this.socket.onerror = (event: Event) => {
-                if (this.onErrorHandler) {
-                    this.onErrorHandler(event);
-                }
-            };
-            this.socket.onmatchpresence = (event: nakamajs.MatchPresenceEvent) => {
-                if (this.onMatchPresenceHandler) {
-                    this.onMatchPresenceHandler(event);
-                }
-            };
-            this.socket.onmatchdata = (event: nakamajs.MatchData) => {
-                if (this.onMatchDataHandler) {
-                    this.onMatchDataHandler(event);
-                }
-            };
-            this.session = await this.socket.connect(this.session!, false);
+            }
         }
 
         return this.session!.token;
@@ -148,6 +134,40 @@ export default class NakamaHelper {
         // NOTE: renew session even if it has few minutes before expiration
         if (!this.session || this.session.isexpired(Math.floor(Date.now() / 1000) - 5 * 60)) {
             this.session = await this.client!.authenticateCustom(this.customId!, true);
+        }
+    }
+
+    private async createSocket(): Promise<void> {
+        this.socket = this.client!.createSocket(this.useSSL, true);
+        this.socket.ondisconnect = (event: Event) => {
+            this.socket = undefined;
+            if (this.onDisconnectHandler) {
+                this.onDisconnectHandler(event);
+            }
+        };
+        this.socket.onerror = (event: Event) => {
+            if (this.onErrorHandler) {
+                this.onErrorHandler(event);
+            }
+        };
+        this.socket.onmatchpresence = (event: nakamajs.MatchPresenceEvent) => {
+            if (this.onMatchPresenceHandler) {
+                this.onMatchPresenceHandler(event);
+            }
+        };
+        this.socket.onmatchdata = (event: nakamajs.MatchData) => {
+            if (this.onMatchDataHandler) {
+                this.onMatchDataHandler(event);
+            }
+        };
+        try {
+            this.session = await this.socket.connect(this.session!, false);
+        } catch (error) {
+            this.socket.ondisconnect = () => undefined;
+            this.socket.onerror = () => undefined;
+            this.socket.onmatchpresence = () => undefined;
+            this.socket.onmatchdata = () => undefined;
+            this.socket = undefined;
         }
     }
 }
