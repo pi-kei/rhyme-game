@@ -27,7 +27,8 @@ app.use(cors({origin: false}));
 app.use(express.static(process.env.CLIENT_BUILD_PATH)); // TODO: set options
 
 app.get('/avatar/:id', function (req, res) {
-    const svg = multiavatar(req.params.id);
+    let svg = String(multiavatar(req.params.id));
+    svg = svg.replace(/viewBox\=\"(\d+) (\d+) (\d+) (\d+)\"/, 'viewBox="$1 $2 $3 $4" width="$3" height="$4"');
     res.type('image/svg+xml');
     res.setHeader('Cache-Control', `public, max-age=${365 * 24 * 60 * 60}`);
     res.send(Buffer.from(svg));
