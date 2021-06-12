@@ -1,6 +1,8 @@
 # rhyme-game
 Multiplayer game based on rhyming
 
+Check it out here [rhymes-sometimes.ru](https://rhymes-sometimes.ru)
+
 **Work in progress...**
 
 ## Tech
