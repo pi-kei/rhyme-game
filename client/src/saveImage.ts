@@ -108,6 +108,10 @@ function drawLine(context: CanvasRenderingContext2D, text: string,  x: number, y
 
 function drawImage(context: CanvasRenderingContext2D, src: string, x: number, y: number, w: number, h: number) {
     return new Promise((resolve, reject) => {
+        if (!src) {
+            resolve(undefined);
+            return;
+        }
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {

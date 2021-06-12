@@ -337,7 +337,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                             }
 
                             // NOTE: Unicode classes not working. Only ru and en letters supported.
-                            const hiddenLetters = line.input.replace(/[a-zа-яё]/gui, '▮');
+                            const hiddenLetters = line.input.replace(/[a-zа-яё]/gui, '∗');
 
                             logger.debug('hiddenLetters=%s', hiddenLetters);
 

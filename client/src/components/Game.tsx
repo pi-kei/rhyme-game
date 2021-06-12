@@ -532,6 +532,7 @@ interface GameResultsProps {
 function GameResults({ resultsData, players, hostId, selfId, currentPoetry, currentPoetryLine, onRevealResult, onNewRound}: GameResultsProps) {
     const { t } = useTranslation();
     const [poeties, setPoetries] = useState<any[]>([]);
+    const {appendMessage} = useAlertContext();
     const poetryElementRef = useRef(null);
 
     const onRevealNextResult = () => {
@@ -555,6 +556,9 @@ function GameResults({ resultsData, players, hostId, selfId, currentPoetry, curr
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }).catch(error => {
+            appendMessage('Error', 'Could not save image', 'error');
+            console.error(error);
         });
     };
 
