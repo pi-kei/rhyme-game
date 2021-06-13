@@ -19,5 +19,11 @@
     "gameStepsEditButton": "Edit",
     "gameResultsSaveButton": "Save",
     "gameResultsNextButton": "Next",
-    "gameResultsNewRoundButton": "Play one more time"
+    "gameResultsNewRoundButton": "Play one more time",
+    "gameSettingsShowFullPreviousLine": "Reveal full previous line",
+    "gameSettingsRevealLastWordInLines": "Reveal last word in lines",
+    "gameSettingsRevealAtMostPercent": "Percent of letters to reveal at most",
+    "gameSettingsStepDuration": "Step duration",
+    "gameSettingsSeconds": "sec",
+    "gameSettingsMinutes": "min"
 }

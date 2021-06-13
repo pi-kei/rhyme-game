@@ -28,14 +28,18 @@ let createMatchRpc: nkruntime.RpcFunction = function (ctx: nkruntime.Context, lo
 const minPlayers: number = 2;
 const maxPlayers: number = 16;
 const zeroStepDuration: number = 3000;
-const normalStepDuration: number = 180000;
+const minStepDuration: number = 30000;
+const maxStepDuration: number = 300000;
+const minRevealPercent: number = 10;
+const maxRevealPercent: number = 50;
 
 interface GameState {
     stage: Stage,
     settings: {
         showFullPreviousLine: boolean,
         revealLastWordInLines: boolean,
-        revealAtMostPercent: number
+        revealAtMostPercent: number,
+        stepDuration: number
     },
     presences: {[userId: string]: nkruntime.Presence},
     host: string | undefined,
@@ -92,7 +96,8 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
         settings: {
             showFullPreviousLine: true,
             revealLastWordInLines: true,
-            revealAtMostPercent: 33.0
+            revealAtMostPercent: 33,
+            stepDuration: 180000
         },
         presences: {},
         host: undefined,
@@ -108,7 +113,7 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
 
     return {
         state: initialState,
-        tickRate: 1,
+        tickRate: 2,
         label: ''
     };
 };
@@ -176,6 +181,9 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
         // NOTE: can't specify presences. See https://github.com/heroiclabs/nakama/issues/620
         dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData)/*, presences*/);
     }
+
+    // NOTE: can't specify presences. See https://github.com/heroiclabs/nakama/issues/620
+    dispatcher.broadcastMessage(OpCode.SETTINGS_UPDATE, encodeMessageData(gameState.settings));
     
     return {
         state: gameState
@@ -229,6 +237,48 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             logger.debug('Kicking player');
             gameState.kickedPlayerIds[data.userId] = true;
             dispatcher.matchKick([gameState.presences[data.userId]]);
+        } else if (message.opCode === OpCode.SETTINGS_UPDATE) {
+            if (!gameState.host || gameState.host !== message.sender.userId) {
+                // not a host player
+                continue;
+            }
+            if (gameState.stage !== 'gettingReady') {
+                // wrong stage
+                continue;
+            }
+            const data = decodeMessageData<{
+                showFullPreviousLine: boolean,
+                revealLastWordInLines: boolean,
+                revealAtMostPercent: number,
+                stepDuration: number}>(message.data);
+            if (
+                !data ||
+                typeof data !== 'object' ||
+                typeof data.showFullPreviousLine !== 'boolean' ||
+                typeof data.revealLastWordInLines !== 'boolean' ||
+                typeof data.revealAtMostPercent !== 'number' ||
+                typeof data.stepDuration !== 'number'
+            ) {
+                // broken message data
+                continue;
+            }
+            gameState.settings.showFullPreviousLine = data.showFullPreviousLine;
+            gameState.settings.revealLastWordInLines = data.revealLastWordInLines;
+            if (data.revealAtMostPercent < minRevealPercent) {
+                gameState.settings.revealAtMostPercent = minRevealPercent;
+            } else if (data.revealAtMostPercent > maxRevealPercent) {
+                gameState.settings.revealAtMostPercent = maxRevealPercent;
+            } else {
+                gameState.settings.revealAtMostPercent = data.revealAtMostPercent;
+            }
+            if (data.stepDuration < minStepDuration) {
+                gameState.settings.stepDuration = minStepDuration;
+            } else if (data.stepDuration > maxStepDuration) {
+                gameState.settings.stepDuration = maxStepDuration;
+            } else {
+                gameState.settings.stepDuration = data.stepDuration;
+            }
+            dispatcher.broadcastMessage(OpCode.SETTINGS_UPDATE, encodeMessageData(gameState.settings));
         } else if (message.opCode === OpCode.START_GAME) {
             if (!gameState.host || gameState.host !== message.sender.userId) {
                 // not a host player
@@ -321,7 +371,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData({results:gameState.gameResults, order:Object.keys(gameState.gameResults)}));
             } else {
                 gameState.currentStep += 1;
-                gameState.nextStepAt = time + normalStepDuration;
+                gameState.nextStepAt = time + gameState.settings.stepDuration;
                 gameState.playersReadyForNextStep = {};
 
                 for (const userId of Object.keys(gameState.presences)) {
@@ -362,7 +412,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                             
                             return hiddenLetters.slice(0, position) + line.input.slice(position);
                         });
-                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:normalStepDuration,lines}), [gameState.presences[userId]]);
+                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:gameState.settings.stepDuration,lines}), [gameState.presences[userId]]);
                 }
             }
         }

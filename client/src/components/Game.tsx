@@ -1,7 +1,7 @@
-import { Button, Confirm, Container, Divider, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Ref, Segment } from "semantic-ui-react";
+import { Button, Checkbox, CheckboxProps, Confirm, Container, Divider, Dropdown, DropdownProps, Form, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Ref, Segment } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
-import React, { useEffect, useReducer, useRef, useState } from "react";
+import React, { SyntheticEvent, useEffect, useReducer, useRef, useState } from "react";
 import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animals } from 'unique-names-generator';
 //import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
@@ -72,6 +72,7 @@ function Game() {
     const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'|'results'>('login');
     const [players, setPlayers] = useState<PlayerInfo[]>([]);
     const [hostId, setHostId] = useState<string>('');
+    const [settings, setSettings] = useState<any>();
 
     const [stepData, setStepData] = useState<any>();
     const [resultsData, setResultsData] = useState<any>();
@@ -143,6 +144,8 @@ function Game() {
         if (matchData.op_code === OpCode.HOST_CHANGED) {
             const messageData: HostChangedMessageData = matchData.data;
             setHostId(messageData.userId);
+        } else if (matchData.op_code === OpCode.SETTINGS_UPDATE) {
+            setSettings(matchData.data);
         } else if (matchData.op_code === OpCode.STAGE_CHANGED) {
             const messageData: StageChangedMessageData = matchData.data;
             if (messageData.stage === 'inProgress') {
@@ -185,6 +188,10 @@ function Game() {
     const onKick = (userId: string) => {
         nakamaHelperRef.current.sendMatchMessage(OpCode.KICK_PLAYER, {userId} as KickPlayerMessageData)
             .catch(handleError);
+    };
+
+    const onSettingsUpdate = (settings: any) => {
+        nakamaHelperRef.current.sendMatchMessage(OpCode.SETTINGS_UPDATE, settings);
     };
 
     const onLeave = () => {
@@ -241,7 +248,9 @@ function Game() {
                     players={players}
                     hostId={hostId}
                     selfId={nakamaHelperRef.current.selfId || ''}
+                    settings={settings}
                     onKick={onKick}
+                    onSettingsUpdate={onSettingsUpdate}
                     onBack={onLeave}
                     onInvite={onInvite}
                     onStart={onStart}
@@ -366,13 +375,15 @@ interface LobbyProps {
     players: PlayerInfo[],
     hostId: string,
     selfId: string,
+    settings: any,
     onKick: (userId: string) => void,
+    onSettingsUpdate: (settings: any) => void,
     onBack: () => void,
     onInvite: () => void,
     onStart: () => void
 }
 
-function Lobby({players, hostId, selfId, onKick, onBack, onInvite, onStart}: LobbyProps) {
+function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onBack, onInvite, onStart}: LobbyProps) {
     const { t } = useTranslation();
     const [confirmKick, setConfirmKick] = useState<PlayerInfo | null>(null);
     const onCancelKick = () => {
@@ -382,9 +393,33 @@ function Lobby({players, hostId, selfId, onKick, onBack, onInvite, onStart}: Lob
         setConfirmKick(null);
         onKick(confirmKick!.id);
     };
+    const onShowFullPreviousLineChange = (event: SyntheticEvent, data: CheckboxProps) => {
+        onSettingsUpdate({
+            ...settings,
+            showFullPreviousLine: data.checked
+        });
+    };
+    const onRevealLastWordInLinesChange = (event: SyntheticEvent, data: CheckboxProps) => {
+        onSettingsUpdate({
+            ...settings,
+            revealLastWordInLines: data.checked
+        });
+    };
+    const onRevealAtMostPercentChange = (event: SyntheticEvent, data: DropdownProps) => {
+        onSettingsUpdate({
+            ...settings,
+            revealAtMostPercent: data.value
+        });
+    };
+    const onStepDurationChange = (event: SyntheticEvent, data: DropdownProps) => {
+        onSettingsUpdate({
+            ...settings,
+            stepDuration: data.value
+        });
+    };
     return (
         <Container>
-            <Grid padded>
+            <Grid padded stackable>
                 <Grid.Column>
                     <Button onClick={onBack} basic>
                         <Icon name='arrow left' />
@@ -423,14 +458,78 @@ function Lobby({players, hostId, selfId, onKick, onBack, onInvite, onStart}: Lob
                         ))}
                 </Grid.Column>
                 <Grid.Column width={11}>
-                    <Button onClick={onInvite}>
-                        <Icon name='chain' />
-                        {t('gameInviteButton')}
-                    </Button>
-                    <Button disabled={!(selfId && hostId && selfId === hostId)} primary onClick={onStart}>
-                        {t('gameStartButton')}
-                        <Icon name='arrow right' />
-                    </Button>
+                    <Grid>
+                        <Grid.Row>
+                            <Grid.Column>
+                                <Form>
+                                    <Form.Field inline>
+                                        <label>{t('gameSettingsShowFullPreviousLine')}</label>
+                                        <Checkbox
+                                            disabled={!settings || !(selfId && hostId && selfId === hostId)}
+                                            toggle
+                                            className='settings-checkbox'
+                                            checked={settings && settings.showFullPreviousLine}
+                                            onChange={onShowFullPreviousLineChange}
+                                        />
+                                    </Form.Field>
+                                    <Form.Field inline>
+                                        <label>{t('gameSettingsRevealLastWordInLines')}</label>
+                                        <Checkbox
+                                            disabled={!settings || !(selfId && hostId && selfId === hostId)}
+                                            toggle
+                                            className='settings-checkbox'
+                                            checked={settings && settings.revealLastWordInLines}
+                                            onChange={onRevealLastWordInLinesChange}
+                                        />
+                                    </Form.Field>
+                                    <Form.Field inline>
+                                        <label>{t('gameSettingsRevealAtMostPercent')}</label>
+                                        <Dropdown
+                                            disabled={!settings || !settings.revealLastWordInLines || !(selfId && hostId && selfId === hostId)}
+                                            options={[
+                                                {key:'10',value:10,text:'10%'},
+                                                {key:'15',value:15,text:'15%'},
+                                                {key:'20',value:20,text:'20%'},
+                                                {key:'25',value:25,text:'25%'},
+                                                {key:'33',value:33,text:'33%'},
+                                                {key:'50',value:50,text:'50%'}
+                                            ]}
+                                            value={settings && settings.revealAtMostPercent}
+                                            onChange={onRevealAtMostPercentChange}
+                                        />
+                                    </Form.Field>
+                                    <Form.Field inline>
+                                        <label>{t('gameSettingsStepDuration')}</label>
+                                        <Dropdown
+                                            disabled={!settings || !(selfId && hostId && selfId === hostId)}
+                                            options={[
+                                                {key:'30',value:30000,text:`30 ${t('gameSettingsSeconds')}`},
+                                                {key:'45',value:45000,text:`45 ${t('gameSettingsSeconds')}`},
+                                                {key:'60',value:60000,text:`1 ${t('gameSettingsMinutes')}`},
+                                                {key:'90',value:90000,text:`1.5 ${t('gameSettingsMinutes')}`},
+                                                {key:'180',value:180000,text:`3 ${t('gameSettingsMinutes')}`},
+                                                {key:'300',value:300000,text:`5 ${t('gameSettingsMinutes')}`}
+                                            ]}
+                                            value={settings && settings.stepDuration}
+                                            onChange={onStepDurationChange}
+                                        />
+                                    </Form.Field>
+                                </Form>
+                            </Grid.Column>
+                        </Grid.Row>
+                        <Grid.Row>
+                            <Grid.Column>
+                                <Button onClick={onInvite}>
+                                    <Icon name='chain' />
+                                    {t('gameInviteButton')}
+                                </Button>
+                                <Button disabled={!(selfId && hostId && selfId === hostId)} primary onClick={onStart}>
+                                    {t('gameStartButton')}
+                                    <Icon name='arrow right' />
+                                </Button>
+                            </Grid.Column>
+                        </Grid.Row>
+                    </Grid>
                 </Grid.Column>
             </Grid>
             <Confirm

@@ -35,3 +35,7 @@
 .poetry-line-block:first-child {
     margin-top: 0;
 }
+
+.ui.checkbox.settings-checkbox {
+    vertical-align: middle;
+}
