@@ -1,5 +1,5 @@
 # rhyme-game
-Multiplayer game based on rhyming
+Multiplayer game based on rhyming, collaborative poetry (versification)
 
 Check it out here [rhymes-sometimes.ru](https://rhymes-sometimes.ru)
 
