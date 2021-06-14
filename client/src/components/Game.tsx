@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import LangSelector from "./LangSelector";
 import { useCountdownTimer, CountdownTimerState } from "./Timer";
 import saveImage from "../saveImage";
+import sounds from "../soundsHelper";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -74,13 +75,15 @@ function Game() {
     const [hostId, setHostId] = useState<string>('');
     const [settings, setSettings] = useState<any>();
 
-    const [stepData, setStepData] = useState<any>();
-    const [readyState, setReadyState] = useState<{ready: number, total: number}>();
-    const [resultsData, setResultsData] = useState<any>();
-    const [currentPoetry, setCurrentPoetry] = useState<number>(-1);
-    const [currentPoetryLine, setCurrentPoetryLine] = useState<number>(-1);
+    const [stepData, setStepData] = useState<any>(); // game
+    const [readyState, setReadyState] = useState<{ready: number, total: number}>(); // game
+    const [resultsData, setResultsData] = useState<any>(); // results
+    const [currentPoetry, setCurrentPoetry] = useState<number>(-1); // results
+    const [currentPoetryLine, setCurrentPoetryLine] = useState<number>(-1); //results
 
     const handleError = (error: any) => {
+        sounds.error.play();
+
         if (error instanceof Error) {
             appendMessage(error.name, error.message, 'error');
             console.error(error);
@@ -113,6 +116,8 @@ function Game() {
     const onDisconnect = (event: Event) => {
         console.info("Disconnected from the server. Event:", event);
 
+        sounds.error.play();
+
         setCurrentState('login');
         setPlayers([]);
         setHostId('');
@@ -127,6 +132,14 @@ function Game() {
 
         const joins = matchPresence.joins;
         const leaves = matchPresence.leaves;
+
+        if (joins && joins.length) {
+            sounds.join.play();
+        }
+
+        if (leaves && leaves.length) {
+            sounds.left.play();
+        }
 
         if (leaves && leaves.length && !(joins && joins.length)) {
             setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)));
@@ -153,10 +166,12 @@ function Game() {
                 setCurrentState('game');
             } else if (messageData.stage === 'results') {
                 setCurrentState('results');
+                setStepData(undefined);
             } else if (messageData.stage === 'gettingReady') {
                 setCurrentState('lobby');
                 setPlayers(prevPlayers => filterLeft(prevPlayers, [], false));
             }
+            sounds.stage.play();
         } else if (matchData.op_code === OpCode.NEXT_STEP) {
             setStepData(matchData.data);
         } else if (matchData.op_code === OpCode.RESULTS) {
@@ -166,6 +181,7 @@ function Game() {
         } else if (matchData.op_code === OpCode.REVEAL_RESULT) {
             setCurrentPoetry(matchData.data.poetry);
             setCurrentPoetryLine(matchData.data.poetryLine);
+            sounds.result.play();
         } else if (matchData.op_code === OpCode.READY_UPDATE) {
             setReadyState(matchData.data);
         }
@@ -203,6 +219,8 @@ function Game() {
         setHostId('');
         nakamaHelperRef.current.leaveCurrentMatch()
             .catch(handleError);
+
+        sounds.left.play();
     };
 
     const onInvite = () => {
@@ -591,6 +609,9 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
         setInput('');
         if (stepData) {
             timerReset(stepData.timeout);
+        }
+        if (stepData && stepData.step > 0) {
+            sounds.step.play();
         }
     }, [stepData?.step]);
 
