@@ -8,7 +8,9 @@ export default async function saveImage(poetry: any): Promise<HTMLCanvasElement>
         throw new Error();
     }
 
-    ctx.font = '14px Lato';
+    const computedStyle = window.getComputedStyle(document.querySelector('body')!)
+
+    ctx.font = `14px ${computedStyle.fontFamily}`;
 
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
