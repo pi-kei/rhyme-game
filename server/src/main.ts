@@ -211,6 +211,8 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
         }
     }
 
+    let sendReadyUpdate = false;
+
     for (const message of messages) {
         if (message.opCode === OpCode.KICK_PLAYER) {
             if (!gameState.host || gameState.host !== message.sender.userId) {
@@ -317,13 +319,19 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 // wrong step
                 continue;
             }
+            if (!gameState.playerToResult[message.sender.userId]) {
+                // input from this sender is not expected
+                continue;
+            }
             // TODO: process input
             const resultId = gameState.playerToResult[message.sender.userId][gameState.currentStep - 1];
             gameState.gameResults[resultId][gameState.currentStep - 1].input = data.input;
-            if (data.ready) {
+            if (data.ready && !gameState.playersReadyForNextStep[message.sender.userId]) {
                 gameState.playersReadyForNextStep[message.sender.userId] = true;
-            } else if (gameState.playersReadyForNextStep[message.sender.userId]) {
+                sendReadyUpdate = true;
+            } else if (!data.ready && gameState.playersReadyForNextStep[message.sender.userId]) {
                 delete gameState.playersReadyForNextStep[message.sender.userId];
+                sendReadyUpdate = true;
             }
         } else if (message.opCode === OpCode.REVEAL_RESULT) {
             if (!gameState.host || gameState.host !== message.sender.userId) {
@@ -373,6 +381,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 gameState.currentStep += 1;
                 gameState.nextStepAt = time + gameState.settings.stepDuration;
                 gameState.playersReadyForNextStep = {};
+                sendReadyUpdate = true;
 
                 for (const userId of Object.keys(gameState.presences)) {
                     const resultId = gameState.playerToResult[userId][gameState.currentStep - 1];
@@ -415,6 +424,10 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                     dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:gameState.settings.stepDuration,lines}), [gameState.presences[userId]]);
                 }
             }
+        }
+
+        if (sendReadyUpdate) {
+            dispatcher.broadcastMessage(OpCode.READY_UPDATE, encodeMessageData({ready:Object.keys(gameState.playersReadyForNextStep).length, total:Object.keys(gameState.gameResults).length}));
         }
     }
 

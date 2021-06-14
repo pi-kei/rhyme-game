@@ -9,6 +9,7 @@ export enum OpCode {
     STAGE_CHANGED = 1,
     NEXT_STEP = 5,
     RESULTS = 8,
+    READY_UPDATE = 11,
     
     // initiated by players
     KICK_PLAYER = 2, // initiated by host player on gettig started stage

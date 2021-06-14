@@ -75,6 +75,7 @@ function Game() {
     const [settings, setSettings] = useState<any>();
 
     const [stepData, setStepData] = useState<any>();
+    const [readyState, setReadyState] = useState<{ready: number, total: number}>();
     const [resultsData, setResultsData] = useState<any>();
     const [currentPoetry, setCurrentPoetry] = useState<number>(-1);
     const [currentPoetryLine, setCurrentPoetryLine] = useState<number>(-1);
@@ -165,6 +166,8 @@ function Game() {
         } else if (matchData.op_code === OpCode.REVEAL_RESULT) {
             setCurrentPoetry(matchData.data.poetry);
             setCurrentPoetryLine(matchData.data.poetryLine);
+        } else if (matchData.op_code === OpCode.READY_UPDATE) {
+            setReadyState(matchData.data);
         }
     };
 
@@ -257,7 +260,7 @@ function Game() {
                 />
             )}
             {currentState === 'game' && (
-                <GameSteps stepData={stepData} onInput={onInput} />
+                <GameSteps stepData={stepData} readyState={readyState} onInput={onInput} />
             )}
             {currentState === 'results' && (
                 <GameResults
@@ -552,10 +555,11 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
 
 interface GameStepsProps {
     stepData: any,
+    readyState?: {ready: number, total: number},
     onInput: (step: number, input: string, ready: boolean) => void
 }
 
-function GameSteps({stepData, onInput}: GameStepsProps) {
+function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
     const { t } = useTranslation();
     const [timerState, timerReset] = useCountdownTimer(0, false);
     const [sent, setSent] = useState<boolean>(false);
@@ -600,6 +604,12 @@ function GameSteps({stepData, onInput}: GameStepsProps) {
                 <Grid.Row>
                     <Grid.Column>
                         <span>{stepData.step} / {stepData.last}</span>
+                        {stepData && stepData.step > 0 && readyState && (
+                            <>
+                                &nbsp;&nbsp;
+                                <small>({readyState.ready} / {readyState.total})</small>
+                            </>
+                        )}
                     </Grid.Column>
                 </Grid.Row>
                 <Grid.Row>
@@ -716,7 +726,13 @@ function GameResults({ resultsData, players, hostId, selfId, currentPoetry, curr
             <Grid padded>
                 <Grid.Row>
                     <Grid.Column>
-                        {currentPoetry >= 0 && (<>{currentPoetry+1} / {poeties.length}</>)}
+                        {currentPoetry >= 0 && (<span>{currentPoetry+1} / {poeties.length}</span>)}
+                        {currentPoetry >= 0 && poeties[currentPoetry] && (
+                            <>
+                                &nbsp;&nbsp;
+                                <small>({currentPoetryLine + 1} / {poeties[currentPoetry].length})</small>
+                            </>
+                        )}
                     </Grid.Column>
                 </Grid.Row>
                 <Divider horizontal>∗ ∗ ∗</Divider>
