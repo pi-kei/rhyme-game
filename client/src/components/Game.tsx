@@ -573,6 +573,15 @@ function GameSteps({stepData, onInput}: GameStepsProps) {
         onInput(stepData.step, newInput, sent);
     };
 
+    const onInputKeyPress = (event: React.KeyboardEvent) => {
+        if (event.code !== 'Enter') {
+            return;
+        }
+        const newSent = !sent;
+        setSent(newSent);
+        onInput(stepData.step, input, newSent);
+    };
+
     useEffect(() => {
         setSent(false);
         setInput('');
@@ -612,6 +621,7 @@ function GameSteps({stepData, onInput}: GameStepsProps) {
                                 disabled={sent}
                                 fluid
                                 onChange={onInputChange}
+                                onKeyPress={onInputKeyPress}
                                 value={input}
                                 maxLength={100}
                                 placeholder={t(stepData.step === 1 ? 'gameStepsFirstLine' : 'gameStepsContinue')}
