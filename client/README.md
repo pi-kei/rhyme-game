@@ -13,3 +13,7 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 [Nakama JavaScript client](https://github.com/heroiclabs/nakama-js).
 
 [i18next](https://www.i18next.com/) internationalization-framework.
+
+[Howler](https://howlerjs.com/) for sounds.
+
+[Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API) for text-to-speech.
