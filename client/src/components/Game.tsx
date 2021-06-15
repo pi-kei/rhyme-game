@@ -14,6 +14,7 @@ import LangSelector from "./LangSelector";
 import { useCountdownTimer, CountdownTimerState } from "./Timer";
 import saveImage from "../saveImage";
 import sounds from "../soundsHelper";
+import SpeechHelper from '../speechHelper';
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -62,6 +63,7 @@ const nakamaHelper: NakamaHelper = new NakamaHelper(
     process.env.REACT_APP_NAKAMA_PORT,
     process.env.REACT_APP_NAKAMA_USE_SSL === "true"
 );
+const speechHelper = new SpeechHelper();
 
 function Game() {
     const { t } = useTranslation();
@@ -78,8 +80,7 @@ function Game() {
     const [stepData, setStepData] = useState<any>(); // game
     const [readyState, setReadyState] = useState<{ready: number, total: number}>(); // game
     const [resultsData, setResultsData] = useState<any>(); // results
-    const [currentPoetry, setCurrentPoetry] = useState<number>(-1); // results
-    const [currentPoetryLine, setCurrentPoetryLine] = useState<number>(-1); //results
+    const [resultsRevealData, setResultsRevealData] = useState<{currentPoetry: number, currentPoetryLine: number}>({currentPoetry: -1, currentPoetryLine: -1}); // results
 
     const handleError = (error: any) => {
         sounds.error.play();
@@ -169,18 +170,17 @@ function Game() {
                 setStepData(undefined);
             } else if (messageData.stage === 'gettingReady') {
                 setCurrentState('lobby');
+                setResultsData(undefined);
                 setPlayers(prevPlayers => filterLeft(prevPlayers, [], false));
             }
             sounds.stage.play();
         } else if (matchData.op_code === OpCode.NEXT_STEP) {
             setStepData(matchData.data);
         } else if (matchData.op_code === OpCode.RESULTS) {
-            setCurrentPoetry(0);
-            setCurrentPoetryLine(-1);
+            setResultsRevealData({currentPoetry: 0, currentPoetryLine: -1});
             setResultsData(matchData.data);
         } else if (matchData.op_code === OpCode.REVEAL_RESULT) {
-            setCurrentPoetry(matchData.data.poetry);
-            setCurrentPoetryLine(matchData.data.poetryLine);
+            setResultsRevealData({currentPoetry: matchData.data.poetry, currentPoetryLine: matchData.data.poetryLine});
             sounds.result.play();
         } else if (matchData.op_code === OpCode.READY_UPDATE) {
             setReadyState(matchData.data);
@@ -286,8 +286,7 @@ function Game() {
                     players={players}
                     hostId={hostId}
                     selfId={nakamaHelperRef.current.selfId || ''}
-                    currentPoetry={currentPoetry}
-                    currentPoetryLine={currentPoetryLine}
+                    resultsRevealData={resultsRevealData}
                     onRevealResult={onRevealResult}
                     onNewRound={onNewRound}
                 />
@@ -678,19 +677,23 @@ interface GameResultsProps {
     players: PlayerInfo[],
     hostId: string,
     selfId: string,
-    currentPoetry: number,
-    currentPoetryLine: number,
+    resultsRevealData: {
+        currentPoetry: number,
+        currentPoetryLine: number
+    },
     onRevealResult: (poetry: number, poetryLine: number) => void,
     onNewRound: () => void
 }
 
-function GameResults({ resultsData, players, hostId, selfId, currentPoetry, currentPoetryLine, onRevealResult, onNewRound}: GameResultsProps) {
-    const { t } = useTranslation();
+function GameResults({ resultsData, players, hostId, selfId, resultsRevealData, onRevealResult, onNewRound}: GameResultsProps) {
+    const { t, i18n } = useTranslation();
     const [poeties, setPoetries] = useState<any[]>([]);
     const {appendMessage} = useAlertContext();
     const poetryElementRef = useRef(null);
+    const speechHelperRef = useRef(speechHelper);
 
     const onRevealNextResult = () => {
+        const {currentPoetryLine, currentPoetry} = resultsRevealData;
         if (currentPoetry < 0 || (currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1)) {
             onRevealResult(currentPoetry + 1, -1);
         } else {
@@ -702,6 +705,8 @@ function GameResults({ resultsData, players, hostId, selfId, currentPoetry, curr
         if (!poetryElementRef.current) {
             return;
         }
+
+        const {currentPoetry} = resultsRevealData;
 
         saveImage(poeties[currentPoetry]).then(canvas => {
             const uri = canvas.toDataURL('image/png');
@@ -738,6 +743,23 @@ function GameResults({ resultsData, players, hostId, selfId, currentPoetry, curr
         }).filter((poetry: any[]) => poetry && poetry.length));
     }, [resultsData, players]);
 
+    useEffect(() => {
+        speechHelperRef.current.lang = i18n.language;
+
+        const {currentPoetryLine, currentPoetry} = resultsRevealData;
+
+        if (
+            currentPoetry >= 0 &&
+            currentPoetryLine >= 0 &&
+            poeties[currentPoetry] &&
+            poeties[currentPoetry][currentPoetryLine]
+        ) {
+            speechHelperRef.current.speak(poeties[currentPoetry][currentPoetryLine].text);
+        }
+
+    }, [i18n.language, resultsRevealData]);
+
+    const {currentPoetryLine, currentPoetry} = resultsRevealData;
     const isPoetryFullyRevealed = currentPoetry >= 0 && poeties[currentPoetry] && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1;
     const isAllPoetriesRevealed = currentPoetry >= 0 && currentPoetry === poeties.length - 1 && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1;
     const isHost = selfId && hostId && selfId === hostId;
