@@ -8,14 +8,14 @@ export default async function saveImage(poetry: any): Promise<HTMLCanvasElement>
         throw new Error();
     }
 
-    const computedStyle = window.getComputedStyle(document.querySelector('body')!)
+    const computedStyle = window.getComputedStyle(document.querySelector('body')!);
 
     ctx.font = `14px ${computedStyle.fontFamily}`;
 
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = computedStyle.backgroundColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = 'black';
+    ctx.fillStyle = computedStyle.color;
 
     const rectWidth = 710;
     const x = 20;
@@ -92,8 +92,8 @@ function wrapText(context: CanvasRenderingContext2D, text: string, x: number, y:
     context.arcTo(x,   y,   x+w, y,   r);
     context.closePath();
     context.lineWidth = 0.25;
-    context.strokeStyle = "#222426";
-    context.shadowColor = "#222426";
+    context.strokeStyle = "rgba(0,0,0,0.5)";
+    context.shadowColor = "rgba(0,0,0,0.5)";
     context.shadowBlur = 2;
     context.shadowOffsetY = 1;
     context.stroke();

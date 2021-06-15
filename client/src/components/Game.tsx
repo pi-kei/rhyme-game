@@ -468,7 +468,6 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
                                     <Button
                                         icon='ban'
                                         color='red'
-                                        basic
                                         onClick={() => setConfirmKick(p)}
                                         compact
                                         circular
@@ -659,6 +658,7 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
                         </Grid.Column>
                         <Grid.Column width={3}>
                             <Button
+                                primary
                                 fluid
                                 icon={sent?'edit':'send'}
                                 content={t(sent?'gameStepsEditButton':'gameStepsSendButton')}

@@ -1,0 +1,6 @@
+/*******************************
+    User Variable Overrides
+*******************************/
+@background: transparent;
+@border: @borderWidth solid rgba(0, 0, 0, 0.25);
+@boxShadow: 0px 1px 2px 0 rgba(0, 0, 0, 0.25);
