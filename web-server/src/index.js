@@ -11,7 +11,9 @@ app.use(helmet({
   contentSecurityPolicy: false, // TODO: fix
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: true,
-  crossOriginResourcePolicy: true,
+  crossOriginResourcePolicy: {
+    policy: 'cross-origin'
+  },
   expectCt: false,
   hsts: false,
   frameguard: { action: 'sameorigin' },
