@@ -322,7 +322,7 @@ function Login({
 
     const randomAvatar = () => {
         //const newAvatar = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(multiavatar(nanoid()))))}`;
-        const newAvatar = process.env.NODE_ENV === 'production' && process.env.REACT_APP_GET_AVATARS_FROM === 'sameOrigin' ? `${window.location.origin}/avatar/${nanoid()}` : `https://api.multiavatar.com/${nanoid()}.svg`;
+        const newAvatar = process.env.NODE_ENV === 'production' && process.env.REACT_APP_GET_AVATARS_FROM === 'sameOrigin' ? `${process.env.PUBLIC_URL}/avatar/${nanoid()}` : `https://api.multiavatar.com/${nanoid()}.svg`;
         storage.setItem('avatar', newAvatar);
         setAvatar(newAvatar);
     };

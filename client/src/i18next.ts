@@ -4,6 +4,9 @@ import HttpBackend from "i18next-http-backend";
 import { initReactI18next } from "react-i18next";
 
 i18next.use(HttpBackend).use(LanguageDetector).use(initReactI18next).init({
+    backend: {
+        loadPath: `${process.env.PUBLIC_URL}/locales/{{lng}}/{{ns}}.json`
+    },
     detection: {
         order: ['localStorage', 'navigator'],
         caches: ['localStorage']
