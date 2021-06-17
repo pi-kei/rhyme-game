@@ -15,6 +15,7 @@ import { useCountdownTimer, CountdownTimerState } from "./Timer";
 import saveImage from "../saveImage";
 import sounds from "../soundsHelper";
 import SpeechHelper from '../speechHelper';
+import { Link } from "react-router-dom";
 
 const namesConfig: NamesConfig = {
     dictionaries: [adjectives, colors, animals],
@@ -401,6 +402,10 @@ function Login({
                 <Grid.Row>
                     <Grid.Column>
                         <LangSelector/>
+                        <Button as={Link} to="/" basic>
+                            <Icon name='home' />
+                            {t('gameHomeButton')}
+                        </Button>
                         <Button onClick={() => onLogin(customId, userName || defaultUserName, avatar)} primary>
                             {t('gameLoginButton')}
                             <Icon name='arrow right' />

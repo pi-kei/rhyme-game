@@ -5,6 +5,7 @@
     "welcomeOrDivider": "or",
     "welcomeGameIdInput": "URL or ID of existing game",
     "gitubLink": "Source code available on <linkToGithub>GitHub</linkToGithub>",
+    "gameHomeButton": "Home",
     "gameLoginButton": "Login",
     "gameBackButton": "Back",
     "gamePlayersCountLabel": "Players",

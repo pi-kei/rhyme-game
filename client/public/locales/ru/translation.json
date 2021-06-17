@@ -5,6 +5,7 @@
     "welcomeOrDivider": "или",
     "welcomeGameIdInput": "Ссылка или ID существующей игры",
     "gitubLink": "Исходный код доступен на <linkToGithub>GitHub</linkToGithub>",
+    "gameHomeButton": "Главная",
     "gameLoginButton": "Войти",
     "gameBackButton": "Назад",
     "gamePlayersCountLabel": "Игроков",
