@@ -1,7 +1,9 @@
 {
     "appTitle": "Rhymes Sometimes",
     "appDescription": "Мультиплеерная игра, основанная на рифме, коллективном стихосложении",
-    "welcomeStartButton": "Ясно, понятно",
+    "welcomeStartButton": "Создать игру",
+    "welcomeOrDivider": "или",
+    "welcomeGameIdInput": "Ссылка или ID существующей игры",
     "gitubLink": "Исходный код доступен на <linkToGithub>GitHub</linkToGithub>",
     "gameLoginButton": "Войти",
     "gameBackButton": "Назад",

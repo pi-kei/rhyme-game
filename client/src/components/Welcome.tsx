@@ -1,10 +1,26 @@
+import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Button, Container, Divider, Grid, Header, Icon } from 'semantic-ui-react';
+import { Button, Container, Grid, Header, Icon, Input, InputProps } from 'semantic-ui-react';
 import LangSelector from './LangSelector';
+import './Welcome.css';
 
 function Welcome() {
     const { t, ready } = useTranslation();
+    const [gameId, setGameId] = useState<string>('');
+
+    const onGameIdChange = (event: React.SyntheticEvent, data: InputProps) => {
+        let newGameId = data.value.trim();
+        const protocol = window.location.protocol;
+        const host = window.location.host.replaceAll(/\./g, '\\.');
+        const re = new RegExp(`^((((${protocol})?//)?${host})?/game/)?([0-9a-z-.]+)`);
+        const match = newGameId.match(re);
+        if (match) {
+            setGameId(match[5]);
+        } else {
+            setGameId('');
+        }
+    };
     
     if (!ready) {
         return null;
@@ -21,11 +37,34 @@ function Welcome() {
                                 <Header.Subheader>{t('appDescription')}</Header.Subheader>
                             </Header.Content>
                         </Header>
-                        <LangSelector/>
-                        <Button as={Link} to='/game' primary>
-                            {t('welcomeStartButton')}
-                            <Icon name='arrow right' />
-                        </Button>
+                        <Grid>
+                            <Grid.Row>
+                                <Grid.Column>
+                                    <LangSelector/>
+                                </Grid.Column>
+                            </Grid.Row>
+                            <Grid.Row>
+                                <Grid.Column>
+                                    <Button as={Link} to='/game' primary>
+                                        <Icon name='plus' />
+                                        {t('welcomeStartButton')}
+                                    </Button>
+                                    <span className="or-divider">{t('welcomeOrDivider')}</span>
+                                    <Input
+                                        placeholder={t('welcomeGameIdInput')}
+                                        action={{
+                                            icon:'arrow right',
+                                            as: Link,
+                                            to: `/game/${gameId}`,
+                                            primary: true,
+                                            disabled: !gameId
+                                        }}
+                                        onChange={onGameIdChange}
+                                        value={gameId}
+                                    />
+                                </Grid.Column>
+                            </Grid.Row>
+                        </Grid>
                     </Grid.Column>
                 </Grid.Row>
                 <Grid.Row>
