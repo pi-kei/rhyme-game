@@ -10,7 +10,6 @@ function App() {
       <Router>
         <Route path="/" exact component={Welcome} />
         <Route path="/game/:id?" component={Game} />
-        <Redirect to="/" />
       </Router>
     </AlertProvider>
   );
