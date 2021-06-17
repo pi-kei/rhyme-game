@@ -31,5 +31,7 @@ RUN yarn global add pm2
 ENV PORT 9000
 EXPOSE 9000
 USER node
+ARG FRAME_ANCESTORS=${FRAME_ANCESTORS}
+ENV FRAME_ANCESTORS=${FRAME_ANCESTORS}
 ENV CLIENT_BUILD_PATH /home/node/app/public
 CMD [ "pm2-runtime", "start", "./src/index.js" ]

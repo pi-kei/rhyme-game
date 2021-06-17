@@ -223,10 +223,31 @@ function Game() {
         sounds.left.play();
     };
 
-    const onInvite = () => {
-        navigator?.clipboard?.writeText(window.location.href).then(() => {
+    const legacyCopyToClipboard = (text: string) => {
+        try {
+            const e = document.createElement("input");
+            document.body.appendChild(e);
+            e.value = text;
+            e.select();
+            document.execCommand("copy");
+            document.body.removeChild(e);
             appendMessage(t('linkCopiedHeader'), t('linkCopiedContent'), 'success', 3000);
-        }).catch(handleError);
+        } catch (error) {
+            handleError(error);
+        }
+    };
+
+    const onInvite = () => {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            legacyCopyToClipboard(window.location.href);
+            return;
+        }
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            appendMessage(t('linkCopiedHeader'), t('linkCopiedContent'), 'success', 3000);
+        }).catch(error => {
+            console.error(error);
+            legacyCopyToClipboard(window.location.href);
+        });
     };
 
     const onStart = () => {
