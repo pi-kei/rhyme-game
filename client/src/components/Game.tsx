@@ -1,4 +1,4 @@
-import { Button, Checkbox, CheckboxProps, Confirm, Container, Divider, Dropdown, DropdownProps, Form, Grid, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Ref, Segment } from "semantic-ui-react";
+import { Button, Checkbox, CheckboxProps, Confirm, Container, Divider, Dropdown, DropdownProps, Form, Grid, Header, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Ref, Segment, Transition } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { SyntheticEvent, useEffect, useReducer, useRef, useState } from "react";
@@ -374,9 +374,18 @@ function Login({
     }
 
     return (
-        <Container textAlign='center'>
+        <Container>
             <Grid padded>
                 <Grid.Row>
+                    <Grid.Column>
+                        <Button as={Link} to="/" basic>
+                            <Icon name='home' />
+                            {t('gameHomeButton')}
+                        </Button>
+                        <LangSelector/>
+                    </Grid.Column>
+                </Grid.Row>
+                <Grid.Row textAlign="center">
                     <Grid.Column>
                         <Button
                             as='a'
@@ -387,7 +396,7 @@ function Login({
                         </Button>
                     </Grid.Column>
                 </Grid.Row>
-                <Grid.Row>
+                <Grid.Row textAlign="center">
                     <Grid.Column>
                         <Input
                             placeholder={defaultUserName}
@@ -399,13 +408,8 @@ function Login({
                         />
                     </Grid.Column>
                 </Grid.Row>
-                <Grid.Row>
+                <Grid.Row textAlign="center">
                     <Grid.Column>
-                        <LangSelector/>
-                        <Button as={Link} to="/" basic>
-                            <Icon name='home' />
-                            {t('gameHomeButton')}
-                        </Button>
                         <Button onClick={() => onLogin(customId, userName || defaultUserName, avatar)} primary>
                             {t('gameLoginButton')}
                             <Icon name='arrow right' />
@@ -662,6 +666,19 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
                         <Progress total={timerState.duration} value={timerState.passed} size='tiny' />
                     </Grid.Column>
                 </Grid.Row>
+                {stepData && stepData.step === 0 && (
+                    <Grid.Row textAlign="center">
+                        <Grid.Column>
+                            <Transition animation="tada" duration={1000} transitionOnMount={true}>
+                                <Header as="h1">
+                                    <Header.Content>
+                                        {t('gameStepsGetReady')}
+                                    </Header.Content>
+                                </Header>
+                            </Transition>
+                        </Grid.Column>
+                    </Grid.Row>
+                )}
                 {stepData && stepData.lines && (
                     <Grid.Row>
                         <Grid.Column>

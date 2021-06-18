@@ -9,3 +9,4 @@
 @primaryColor: @yellow;
 @focusedFormBorderColor: @yellow;
 @inputColor: rgba(0, 0, 0, 0.87);
+@borderColor: @whiteBorderColor;
