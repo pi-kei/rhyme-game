@@ -563,6 +563,7 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
                                                 {key:'45',value:45000,text:`45 ${t('gameSettingsSeconds')}`},
                                                 {key:'60',value:60000,text:`1 ${t('gameSettingsMinutes')}`},
                                                 {key:'90',value:90000,text:`1.5 ${t('gameSettingsMinutes')}`},
+                                                {key:'120',value:120000,text:`2 ${t('gameSettingsMinutes')}`},
                                                 {key:'180',value:180000,text:`3 ${t('gameSettingsMinutes')}`},
                                                 {key:'300',value:300000,text:`5 ${t('gameSettingsMinutes')}`}
                                             ]}
