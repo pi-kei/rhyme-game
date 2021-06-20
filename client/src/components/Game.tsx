@@ -868,8 +868,13 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
 
     useEffect(() => {
         speechHelperRef.current.lang = i18n.language;
-        speechHelperRef.current.mute = muteTts;
+    }, [i18n.language]);
 
+    useEffect(() => {
+        speechHelperRef.current.muted = muteTts || isMuted;
+    }, [muteTts, isMuted]);
+
+    useEffect(() => {
         const {currentPoetryLine, currentPoetry} = resultsRevealData;
 
         if (
@@ -880,8 +885,7 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
         ) {
             speechHelperRef.current.speak(poeties[currentPoetry][currentPoetryLine].text);
         }
-
-    }, [i18n.language, resultsRevealData]);
+    }, [resultsRevealData]);
 
     const {currentPoetryLine, currentPoetry} = resultsRevealData;
     const isPoetryFullyRevealed = currentPoetry >= 0 && poeties[currentPoetry] && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1;

@@ -1,10 +1,10 @@
 export default class SpeechHelper {
     private synth: SpeechSynthesis;
     private voices: SpeechSynthesisVoice[];
+    private isMuted: boolean;
     public lang: string;
-    public mute: boolean;
 
-    constructor(lang: string = 'en', mute: boolean = false) {
+    constructor(lang: string = 'en', isMuted: boolean = false) {
         this.synth = window.speechSynthesis;
 
         if (this.synth) {
@@ -19,18 +19,24 @@ export default class SpeechHelper {
         }
 
         this.lang = lang;
-        this.mute = mute;
+        this.isMuted = isMuted;
+    }
+
+    public get muted() {
+        return this.isMuted;
+    }
+
+    public set muted(value: boolean) {
+        this.isMuted = value;
+        if (this.isMuted && this.synth && (this.synth.speaking || this.synth.pending)) {
+            this.synth.cancel();
+        }
     }
 
     speak(text: string) {
-        if (!this.synth || text.length === 0 || this.mute) {
+        if (!this.synth || text.length === 0 || this.isMuted) {
             return;
         }
-        /*if (this.synth.speaking) {
-            this.synth.cancel();
-            setTimeout(this.speak, 300);
-            return;
-        }*/
         const voices = this.voices.filter(voice => voice.lang.startsWith(this.lang));
         if (voices.length === 0) {
             return;
