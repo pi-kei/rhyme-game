@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import LangSelector from "./LangSelector";
 import { useCountdownTimer, CountdownTimerState } from "./Timer";
 import saveImage from "../saveImage";
-import sounds from "../soundsHelper";
+import SoundsHelper from "../soundsHelper";
 import SpeechHelper from '../speechHelper';
 import { Link } from "react-router-dom";
 
@@ -65,6 +65,49 @@ const nakamaHelper: NakamaHelper = new NakamaHelper(
     process.env.REACT_APP_NAKAMA_USE_SSL === "true"
 );
 const speechHelper = new SpeechHelper();
+const soundsHelper = new SoundsHelper();
+
+soundsHelper.addSound('join', {
+    src: [`${process.env.PUBLIC_URL}/sounds/join.mp3`]
+});
+soundsHelper.addSound('left', {
+    src: [`${process.env.PUBLIC_URL}/sounds/left.mp3`]
+});
+soundsHelper.addSound('error', {
+    src: [`${process.env.PUBLIC_URL}/sounds/error.mp3`]
+});
+soundsHelper.addSound('step', {
+    src: [`${process.env.PUBLIC_URL}/sounds/step.mp3`]
+});
+soundsHelper.addSound('stage', {
+    src: [`${process.env.PUBLIC_URL}/sounds/stage.mp3`]
+});
+soundsHelper.addSound('result', {
+    src: [`${process.env.PUBLIC_URL}/sounds/result.mp3`]
+});
+
+function useSoundsHelper(soundsHelper: SoundsHelper) {
+    const soundsHelperRef = useRef(soundsHelper);
+    const [isMuted, setIsMuted] = useState<boolean>(soundsHelperRef.current.muted);
+
+    const toggleMuted = () => {
+        setIsMuted(prevIsMuted => {
+            const newIsMuted = !prevIsMuted;
+            soundsHelperRef.current.muted = newIsMuted;
+            return newIsMuted;
+        });
+    };
+
+    const playSound = (key: string) => {
+        soundsHelperRef.current.getSound(key).play();
+    };
+
+    return {
+        isMuted,
+        toggleMuted,
+        playSound
+    };
+}
 
 function Game() {
     const { t } = useTranslation();
@@ -72,6 +115,7 @@ function Game() {
     const history = useHistory();
     const {appendMessage} = useAlertContext();
     const nakamaHelperRef = useRef(nakamaHelper);
+    const { playSound } = useSoundsHelper(soundsHelper);
 
     const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'|'results'>('login');
     const [players, setPlayers] = useState<PlayerInfo[]>([]);
@@ -84,7 +128,7 @@ function Game() {
     const [resultsRevealData, setResultsRevealData] = useState<{currentPoetry: number, currentPoetryLine: number}>({currentPoetry: -1, currentPoetryLine: -1}); // results
 
     const handleError = (error: any) => {
-        sounds.error.play();
+        playSound('error');
 
         if (error instanceof Error) {
             appendMessage(error.name, error.message, 'error');
@@ -118,7 +162,7 @@ function Game() {
     const onDisconnect = (event: Event) => {
         console.info("Disconnected from the server. Event:", event);
 
-        sounds.error.play();
+        playSound('error');
 
         setCurrentState('login');
         setPlayers([]);
@@ -136,11 +180,11 @@ function Game() {
         const leaves = matchPresence.leaves;
 
         if (joins && joins.length) {
-            sounds.join.play();
+            playSound('join');
         }
 
         if (leaves && leaves.length) {
-            sounds.left.play();
+            playSound('left');
         }
 
         if (leaves && leaves.length && !(joins && joins.length)) {
@@ -174,7 +218,7 @@ function Game() {
                 setResultsData(undefined);
                 setPlayers(prevPlayers => filterLeft(prevPlayers, [], false));
             }
-            sounds.stage.play();
+            playSound('stage');
         } else if (matchData.op_code === OpCode.NEXT_STEP) {
             setStepData(matchData.data);
         } else if (matchData.op_code === OpCode.RESULTS) {
@@ -182,7 +226,7 @@ function Game() {
             setResultsData(matchData.data);
         } else if (matchData.op_code === OpCode.REVEAL_RESULT) {
             setResultsRevealData({currentPoetry: matchData.data.poetry, currentPoetryLine: matchData.data.poetryLine});
-            sounds.result.play();
+            playSound('result');
         } else if (matchData.op_code === OpCode.READY_UPDATE) {
             setReadyState(matchData.data);
         }
@@ -221,7 +265,7 @@ function Game() {
         nakamaHelperRef.current.leaveCurrentMatch()
             .catch(handleError);
 
-        sounds.left.play();
+        playSound('left');
     };
 
     const legacyCopyToClipboard = (text: string) => {
@@ -330,6 +374,7 @@ function Login({
     const [userName, setUserName] = useState<string>(defaultUserName);
     const [customId, setCustomId] = useState<string>(storage.getItem('uuid') || '');
     const [avatar, setAvatar] = useState<string>(storage.getItem('avatar') || '');
+    const { isMuted, toggleMuted } = useSoundsHelper(soundsHelper);
 
     const randomCustomId = () => {
         const newCustomId = nanoid();
@@ -377,13 +422,16 @@ function Login({
     return (
         <Container>
             <Grid padded>
-                <Grid.Row>
-                    <Grid.Column>
+                <Grid.Row columns={2}>
+                    <Grid.Column width={13}>
                         <Button as={Link} to="/" basic>
                             <Icon name='home' />
                             {t('gameHomeButton')}
                         </Button>
                         <LangSelector/>
+                    </Grid.Column>
+                    <Grid.Column width={3} textAlign="right">
+                        <Button icon={isMuted ? "volume off" : "volume up"} active={false} basic onClick={toggleMuted} />
                     </Grid.Column>
                 </Grid.Row>
                 <Grid.Row textAlign="center">
@@ -437,6 +485,7 @@ interface LobbyProps {
 function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onBack, onInvite, onStart}: LobbyProps) {
     const { t } = useTranslation();
     const [confirmKick, setConfirmKick] = useState<PlayerInfo | null>(null);
+    const { isMuted, toggleMuted } = useSoundsHelper(soundsHelper);
     const onCancelKick = () => {
         setConfirmKick(null);
     };
@@ -476,13 +525,18 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
     };
     return (
         <Container>
-            <Grid padded stackable>
-                <Grid.Column>
-                    <Button onClick={onBack} basic>
-                        <Icon name='arrow left' />
-                        {t('gameBackButton')}
-                    </Button>
-                </Grid.Column>
+            <Grid padded>
+                <Grid.Row columns={2}>
+                    <Grid.Column width={13}>
+                        <Button onClick={onBack} basic>
+                            <Icon name='arrow left' />
+                            {t('gameBackButton')}
+                        </Button>
+                    </Grid.Column>
+                    <Grid.Column width={3} textAlign="right">
+                        <Button icon={isMuted ? "volume off" : "volume up"} active={false} basic onClick={toggleMuted} />
+                    </Grid.Column>
+                </Grid.Row>
             </Grid>
             <Grid columns={2} divided padded stackable>
                 <Grid.Column width={5}>
@@ -628,6 +682,7 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
     const [timerState, timerReset] = useCountdownTimer(0, false);
     const [sent, setSent] = useState<boolean>(false);
     const [input, setInput] = useState<string>('');
+    const { isMuted, toggleMuted, playSound } = useSoundsHelper(soundsHelper);
 
     const onButtonClick = () => {
         const newSent = !sent;
@@ -657,7 +712,7 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
             timerReset(stepData.timeout);
         }
         if (stepData && stepData.step > 0) {
-            sounds.step.play();
+            playSound('step');
         }
     }, [stepData?.step]);
 
@@ -667,9 +722,9 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
 
     return (
         <Container>
-            <Grid padded stackable>
-                <Grid.Row>
-                    <Grid.Column>
+            <Grid padded>
+                <Grid.Row columns={2}>
+                    <Grid.Column width={13}>
                         <span>{stepData.step} / {stepData.last}</span>
                         {stepData && stepData.step > 0 && readyState && (
                             <>
@@ -678,7 +733,12 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
                             </>
                         )}
                     </Grid.Column>
+                    <Grid.Column width={3} textAlign="right">
+                        <Button icon={isMuted ? "volume off" : "volume up"} active={false} basic onClick={toggleMuted} />
+                    </Grid.Column>
                 </Grid.Row>
+            </Grid>
+            <Grid padded stackable>
                 <Grid.Row>
                     <Grid.Column>
                         <Progress total={timerState.duration} value={timerState.passed} size='tiny' />
@@ -753,6 +813,7 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
     const {appendMessage} = useAlertContext();
     const poetryElementRef = useRef(null);
     const speechHelperRef = useRef(speechHelper);
+    const { isMuted, toggleMuted } = useSoundsHelper(soundsHelper);
 
     const onRevealNextResult = () => {
         const {currentPoetryLine, currentPoetry} = resultsRevealData;
@@ -830,8 +891,8 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
     return (
         <Container>
             <Grid padded>
-                <Grid.Row>
-                    <Grid.Column>
+                <Grid.Row columns={2}>
+                    <Grid.Column width={13}>
                         {currentPoetry >= 0 && (<span>{currentPoetry+1} / {poeties.length}</span>)}
                         {currentPoetry >= 0 && poeties[currentPoetry] && (
                             <>
@@ -839,6 +900,9 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
                                 <small>({currentPoetryLine + 1} / {poeties[currentPoetry].length})</small>
                             </>
                         )}
+                    </Grid.Column>
+                    <Grid.Column width={3} textAlign="right">
+                        <Button icon={isMuted ? "volume off" : "volume up"} active={false} basic onClick={toggleMuted} />
                     </Grid.Column>
                 </Grid.Row>
                 <Divider horizontal>∗ ∗ ∗</Divider>

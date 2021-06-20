@@ -2,5 +2,6 @@
     User Variable Overrides
 *******************************/
 @primaryTextColor: rgba(0, 0, 0, 0.75);
-@basicBackground: @white;
+@basicTextColor: @white;
+@basicBackground: transparent;
 @basicActiveBackground: @white;
