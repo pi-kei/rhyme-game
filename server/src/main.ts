@@ -39,7 +39,8 @@ interface GameState {
         showFullPreviousLine: boolean,
         revealLastWordInLines: boolean,
         revealAtMostPercent: number,
-        stepDuration: number
+        stepDuration: number,
+        turnOnTts: boolean
     },
     presences: {[userId: string]: nkruntime.Presence},
     host: string | undefined,
@@ -97,7 +98,8 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
             showFullPreviousLine: true,
             revealLastWordInLines: true,
             revealAtMostPercent: 33,
-            stepDuration: 180000
+            stepDuration: 180000,
+            turnOnTts: true
         },
         presences: {},
         host: undefined,
@@ -252,14 +254,16 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 showFullPreviousLine: boolean,
                 revealLastWordInLines: boolean,
                 revealAtMostPercent: number,
-                stepDuration: number}>(message.data);
+                stepDuration: number,
+                turnOnTts: boolean}>(message.data);
             if (
                 !data ||
                 typeof data !== 'object' ||
                 typeof data.showFullPreviousLine !== 'boolean' ||
                 typeof data.revealLastWordInLines !== 'boolean' ||
                 typeof data.revealAtMostPercent !== 'number' ||
-                typeof data.stepDuration !== 'number'
+                typeof data.stepDuration !== 'number' ||
+                typeof data.turnOnTts !== 'boolean'
             ) {
                 // broken message data
                 continue;
@@ -280,6 +284,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             } else {
                 gameState.settings.stepDuration = data.stepDuration;
             }
+            gameState.settings.turnOnTts = data.turnOnTts;
             dispatcher.broadcastMessage(OpCode.SETTINGS_UPDATE, encodeMessageData(gameState.settings));
         } else if (message.opCode === OpCode.START_GAME) {
             if (!gameState.host || gameState.host !== message.sender.userId) {

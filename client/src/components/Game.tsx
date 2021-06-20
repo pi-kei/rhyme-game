@@ -308,6 +308,7 @@ function Game() {
                     players={players}
                     hostId={hostId}
                     selfId={nakamaHelperRef.current.selfId || ''}
+                    muteTts={settings && !settings.turnOnTts}
                     resultsRevealData={resultsRevealData}
                     onRevealResult={onRevealResult}
                     onNewRound={onNewRound}
@@ -467,6 +468,12 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
             stepDuration: data.value
         });
     };
+    const onTurnOnTtsChange = (event: SyntheticEvent, data: CheckboxProps) => {
+        onSettingsUpdate({
+            ...settings,
+            turnOnTts: data.checked
+        });
+    };
     return (
         <Container>
             <Grid padded stackable>
@@ -561,6 +568,16 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
                                             ]}
                                             value={settings && settings.stepDuration}
                                             onChange={onStepDurationChange}
+                                        />
+                                    </Form.Field>
+                                    <Form.Field inline>
+                                        <label>{t('gameSettingsTurnOnTts')}</label>
+                                        <Checkbox
+                                            disabled={!settings || !(selfId && hostId && selfId === hostId)}
+                                            toggle
+                                            className='settings-checkbox'
+                                            checked={settings && settings.turnOnTts}
+                                            onChange={onTurnOnTtsChange}
                                         />
                                     </Form.Field>
                                 </Form>
@@ -720,6 +737,7 @@ interface GameResultsProps {
     players: PlayerInfo[],
     hostId: string,
     selfId: string,
+    muteTts: boolean,
     resultsRevealData: {
         currentPoetry: number,
         currentPoetryLine: number
@@ -728,7 +746,7 @@ interface GameResultsProps {
     onNewRound: () => void
 }
 
-function GameResults({ resultsData, players, hostId, selfId, resultsRevealData, onRevealResult, onNewRound}: GameResultsProps) {
+function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRevealData, onRevealResult, onNewRound}: GameResultsProps) {
     const { t, i18n } = useTranslation();
     const [poeties, setPoetries] = useState<any[]>([]);
     const {appendMessage} = useAlertContext();
@@ -788,6 +806,7 @@ function GameResults({ resultsData, players, hostId, selfId, resultsRevealData, 
 
     useEffect(() => {
         speechHelperRef.current.lang = i18n.language;
+        speechHelperRef.current.mute = muteTts;
 
         const {currentPoetryLine, currentPoetry} = resultsRevealData;
 

@@ -28,6 +28,7 @@
     "gameSettingsRevealLastWordInLines": "Reveal last word in lines",
     "gameSettingsRevealAtMostPercent": "Percent of letters to reveal at most",
     "gameSettingsStepDuration": "Step duration",
+    "gameSettingsTurnOnTts": "Turn on text-to-speech",
     "gameSettingsSeconds": "sec",
     "gameSettingsMinutes": "min"
 }

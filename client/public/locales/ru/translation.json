@@ -28,6 +28,7 @@
     "gameSettingsRevealLastWordInLines": "Показывать последнее слово в строках",
     "gameSettingsRevealAtMostPercent": "Показывать не более (процент букв)",
     "gameSettingsStepDuration": "Время шага",
+    "gameSettingsTurnOnTts": "Включить озвучку текста",
     "gameSettingsSeconds": "сек",
     "gameSettingsMinutes": "мин"
 }

@@ -2,8 +2,9 @@ export default class SpeechHelper {
     private synth: SpeechSynthesis;
     private voices: SpeechSynthesisVoice[];
     public lang: string;
+    public mute: boolean;
 
-    constructor(lang: string = 'en') {
+    constructor(lang: string = 'en', mute: boolean = false) {
         this.synth = window.speechSynthesis;
 
         if (this.synth) {
@@ -18,10 +19,11 @@ export default class SpeechHelper {
         }
 
         this.lang = lang;
+        this.mute = mute;
     }
 
     speak(text: string) {
-        if (!this.synth || text.length === 0) {
+        if (!this.synth || text.length === 0 || this.mute) {
             return;
         }
         /*if (this.synth.speaking) {
