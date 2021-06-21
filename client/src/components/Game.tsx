@@ -296,6 +296,10 @@ function Game() {
     };
 
     const onStart = () => {
+        if (players.length < 2) {
+            appendMessage(t('startWarningHeader'), t('startWarningContent'), 'warning');
+            return;
+        }
         nakamaHelperRef.current.sendMatchMessage(OpCode.START_GAME, {});
     };
 
