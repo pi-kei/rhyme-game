@@ -102,7 +102,7 @@ export default class NakamaHelper {
         return users;
     }
 
-    async joinOrCreateMatch(matchId: string | undefined): Promise<nakamajs.Match> {
+    async joinOrCreateMatch(matchId: string | null | undefined): Promise<nakamajs.Match> {
         await this.leaveCurrentMatch();
         
         if (!matchId) {

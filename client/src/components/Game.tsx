@@ -154,7 +154,7 @@ function Game() {
                 storage.setItem('nakamaToken', jwt);
                 return nakamaHelperRef.current.updateAccount(userName, avatar);
             })
-            .then(() => nakamaHelperRef.current.joinOrCreateMatch(gameId))
+            .then(() => nakamaHelperRef.current.joinOrCreateMatch(storage.getItem('matchId')))
             .then(onMatchJoined)
             .catch(handleError);
     };
@@ -235,9 +235,7 @@ function Game() {
     const onMatchJoined = (match: nakamajs.Match) => {
         console.log("onMatchJoined", match);
         setCurrentState('lobby');
-        if (!gameId) {
-            history.replace(`/game/${match.match_id}`);
-        }
+        storage.setItem('matchId', match.match_id);
 
         const presences = match.presences;
         if (presences && presences.length) {
@@ -283,15 +281,17 @@ function Game() {
     };
 
     const onInvite = () => {
+        const link = `${window.location.origin}/game/${nakamaHelperRef.current.currentMatchId}`;
+
         if (!navigator.clipboard || !navigator.clipboard.writeText) {
-            legacyCopyToClipboard(window.location.href);
+            legacyCopyToClipboard(link);
             return;
         }
-        navigator.clipboard.writeText(window.location.href).then(() => {
+        navigator.clipboard.writeText(link).then(() => {
             appendMessage(t('linkCopiedHeader'), t('linkCopiedContent'), 'success', 3000);
         }).catch(error => {
             console.error(error);
-            legacyCopyToClipboard(window.location.href);
+            legacyCopyToClipboard(link);
         });
     };
 
@@ -328,6 +328,15 @@ function Game() {
             nakamaHelperRef.current.onMatchData = undefined;
         };
     });
+
+    useEffect(() => {
+        if (gameId) {
+            storage.setItem('matchId', gameId);
+            history.replace('/game');
+        } else {
+            storage.removeItem('matchId');
+        }
+    }, []);
 
     return (
         <>
