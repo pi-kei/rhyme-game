@@ -304,7 +304,7 @@ function Game() {
     };
 
     const onInput = (step: number, input: string, ready: boolean) => {
-        nakamaHelperRef.current.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input: input.trim(), ready});
+        nakamaHelperRef.current.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input: input.trim().replaceAll(/\s{2,}/gu, ' '), ready});
     };
 
     const onRevealResult = (poetry: number, poetryLine: number) => {
@@ -695,7 +695,7 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
     };
 
     const onInputChange = (event: React.ChangeEvent, data: InputOnChangeData) => {
-        const newInput = data.value.replaceAll(/[^\p{L}\p{Zs}\p{P}]/gu, '').replaceAll(/\s+/gu, ' ');
+        const newInput = data.value.replaceAll(/[^\p{L}\p{Zs}\p{P}]/gu, '');
         setInput(newInput);
         onInput(stepData.step, newInput, sent);
     };
