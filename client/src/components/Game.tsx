@@ -698,6 +698,9 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
     const { isMuted, toggleMuted, playSound } = useSoundsHelper(soundsHelper);
 
     const onButtonClick = () => {
+        if (!input && !sent) {
+            return;
+        }
         const newSent = !sent;
         setSent(newSent);
         onInput(stepData.step, input, newSent);
@@ -711,6 +714,9 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
 
     const onInputKeyPress = (event: React.KeyboardEvent) => {
         if (event.code !== 'Enter') {
+            return;
+        }
+        if (!input && !sent) {
             return;
         }
         const newSent = !sent;
