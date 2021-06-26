@@ -759,6 +759,7 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
     const [sent, setSent] = useState<boolean>(false);
     const [input, setInput] = useState<string>('');
     const { isMuted, toggleMuted, playSound } = useSoundsHelper(soundsHelper);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const onButtonClick = () => {
         if (!input && !sent) {
@@ -797,6 +798,12 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
             playSound('step');
         }
     }, [stepData?.step]);
+
+    useEffect(() => {
+        if (!sent) {
+            setTimeout(() => inputRef.current?.focus(), 0);
+        }
+    }, [sent]);
 
     if (!stepData) {
         return null;
@@ -857,7 +864,10 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
                                 value={input}
                                 maxLength={100}
                                 placeholder={t(stepData.step === 1 ? 'gameStepsFirstLine' : 'gameStepsContinue')}
-                            />
+                                tabIndex={-1}
+                            >
+                                <input ref={inputRef} />
+                            </Input>
                         </Grid.Column>
                         <Grid.Column width={3}>
                             <Button
