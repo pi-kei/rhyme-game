@@ -854,7 +854,7 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
             const uri = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.href = uri;
-            link.download = `${nanoid()}.png`;
+            link.download = `${currentPoetry + 1}-${nanoid()}.png`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
