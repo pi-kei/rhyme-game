@@ -26,6 +26,7 @@
     "gameResultsSaveButton": "Save",
     "gameResultsNextButton": "Next",
     "gameResultsNewRoundButton": "Play one more time",
+    "gameSettingsMaxPlayers": "Max. number of players",
     "gameSettingsShowFullPreviousLine": "Reveal full previous line",
     "gameSettingsRevealLastWordInLines": "Reveal last word in lines",
     "gameSettingsRevealAtMostPercent": "Percent of letters to reveal at most",

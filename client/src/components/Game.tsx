@@ -1,4 +1,4 @@
-import { Button, Checkbox, CheckboxProps, Confirm, Container, Divider, Dropdown, DropdownProps, Form, Grid, Header, Icon, Image, Input, InputOnChangeData, List, Popup, Progress, Ref, Segment, Transition } from "semantic-ui-react";
+import { Button, Checkbox, CheckboxProps, Confirm, Container, Divider, Dropdown, DropdownProps, Form, Grid, Header, Icon, Image, Input, InputOnChangeData, InputProps, List, Popup, Progress, Ref, Segment, Transition } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
 import React, { SyntheticEvent, useEffect, useReducer, useRef, useState } from "react";
@@ -506,6 +506,12 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
         setConfirmKick(null);
         onKick(confirmKick!.id);
     };
+    const onMaxPlayersChange = (event: SyntheticEvent, data: DropdownProps) => {
+        onSettingsUpdate({
+            ...settings,
+            maxPlayers: data.value
+        });
+    };
     const onShowFullPreviousLineChange = (event: SyntheticEvent, data: CheckboxProps) => {
         onSettingsUpdate({
             ...settings,
@@ -553,7 +559,7 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
             </Grid>
             <Grid columns={2} divided padded stackable>
                 <Grid.Column width={5}>
-                        <div>{t('gamePlayersCountLabel')}: {players.length} / 16</div>
+                        <div>{t('gamePlayersCountLabel')}: {players.length} / {settings && settings.maxPlayers}</div>
                         {players.map((p: PlayerInfo) => (
                             <div key={p.id} className='ui-player-list-item'>
                                 <Image avatar src={p.avatar} />
@@ -585,6 +591,31 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
                         <Grid.Row>
                             <Grid.Column>
                                 <Form>
+                                    <Form.Field inline>
+                                        <label>{t('gameSettingsMaxPlayers')}</label>
+                                        <Dropdown
+                                            disabled={!settings || !(selfId && hostId && selfId === hostId)}
+                                            options={[
+                                                {key:'2',value:2,text:'2'},
+                                                {key:'3',value:3,text:'3'},
+                                                {key:'4',value:4,text:'4'},
+                                                {key:'5',value:5,text:'5'},
+                                                {key:'6',value:6,text:'6'},
+                                                {key:'7',value:7,text:'7'},
+                                                {key:'8',value:8,text:'8'},
+                                                {key:'9',value:9,text:'9'},
+                                                {key:'10',value:10,text:'10'},
+                                                {key:'11',value:11,text:'11'},
+                                                {key:'12',value:12,text:'12'},
+                                                {key:'13',value:13,text:'13'},
+                                                {key:'14',value:14,text:'14'},
+                                                {key:'15',value:15,text:'15'},
+                                                {key:'16',value:16,text:'16'}
+                                            ]}
+                                            value={settings && settings.maxPlayers}
+                                            onChange={onMaxPlayersChange}
+                                        />
+                                    </Form.Field>
                                     <Form.Field inline>
                                         <label>{t('gameSettingsShowFullPreviousLine')}</label>
                                         <Checkbox

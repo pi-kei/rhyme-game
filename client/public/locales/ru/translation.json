@@ -26,6 +26,7 @@
     "gameResultsSaveButton": "Сохранить",
     "gameResultsNextButton": "Далее",
     "gameResultsNewRoundButton": "Сыграть ещё разок",
+    "gameSettingsMaxPlayers": "Макс. количество игроков",
     "gameSettingsShowFullPreviousLine": "Показывать предыдущую строку полностью",
     "gameSettingsRevealLastWordInLines": "Показывать последнее слово в строках",
     "gameSettingsRevealAtMostPercent": "Показывать не более (процент букв)",

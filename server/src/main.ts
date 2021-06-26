@@ -36,6 +36,7 @@ const maxRevealPercent: number = 50;
 interface GameState {
     stage: Stage,
     settings: {
+        maxPlayers: number,
         showFullPreviousLine: boolean,
         revealLastWordInLines: boolean,
         revealAtMostPercent: number,
@@ -95,6 +96,7 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
     const initialState: GameState = {
         stage: 'gettingReady',
         settings: {
+            maxPlayers,
             showFullPreviousLine: true,
             revealLastWordInLines: true,
             revealAtMostPercent: 33,
@@ -126,7 +128,7 @@ let matchJoinAttempt: nkruntime.MatchJoinAttemptFunction = function (ctx: nkrunt
     const gameState: GameState = state as GameState;
     const playersCount: number = Object.keys(gameState.presences).length;
 
-    if (playersCount >= maxPlayers) {
+    if (playersCount >= gameState.settings.maxPlayers) {
         return {
             state: gameState,
             accept: false,
@@ -251,6 +253,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 continue;
             }
             const data = decodeMessageData<{
+                maxPlayers: number,
                 showFullPreviousLine: boolean,
                 revealLastWordInLines: boolean,
                 revealAtMostPercent: number,
@@ -259,6 +262,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             if (
                 !data ||
                 typeof data !== 'object' ||
+                typeof data.maxPlayers !== 'number' ||
                 typeof data.showFullPreviousLine !== 'boolean' ||
                 typeof data.revealLastWordInLines !== 'boolean' ||
                 typeof data.revealAtMostPercent !== 'number' ||
@@ -267,6 +271,13 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             ) {
                 // broken message data
                 continue;
+            }
+            if (data.maxPlayers < minPlayers) {
+                gameState.settings.maxPlayers = minPlayers;
+            } else if (data.maxPlayers > maxPlayers) {
+                gameState.settings.maxPlayers = maxPlayers;
+            } else {
+                gameState.settings.maxPlayers = data.maxPlayers;
             }
             gameState.settings.showFullPreviousLine = data.showFullPreviousLine;
             gameState.settings.revealLastWordInLines = data.revealLastWordInLines;
