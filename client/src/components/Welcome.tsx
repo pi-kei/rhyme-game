@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Button, Container, Grid, Header, Icon, Input, InputProps } from 'semantic-ui-react';
 import LangSelector from './LangSelector';
+import storage from '../storage';
 import './Welcome.css';
 
 function Welcome() {
@@ -21,6 +22,10 @@ function Welcome() {
             setGameId('');
         }
     };
+
+    useEffect(() => {
+        storage.removeItem('matchId');
+    }, []);
     
     if (!ready) {
         return null;
