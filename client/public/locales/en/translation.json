@@ -23,6 +23,7 @@
     "gameStepsContinue": "Continue lines above with your line",
     "gameStepsSendButton": "Send",
     "gameStepsEditButton": "Edit",
+    "gameResultsPrevButton": "Previous",
     "gameResultsSaveButton": "Save",
     "gameResultsNextButton": "Next",
     "gameResultsNewRoundButton": "Play one more time",

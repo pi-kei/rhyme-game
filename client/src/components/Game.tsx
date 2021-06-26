@@ -211,6 +211,7 @@ function Game() {
             if (messageData.stage === 'inProgress') {
                 setCurrentState('game');
             } else if (messageData.stage === 'results') {
+                setResultsRevealData({currentPoetry: -1, currentPoetryLine: -1});
                 setCurrentState('results');
                 setStepData(undefined);
             } else if (messageData.stage === 'gettingReady') {
@@ -896,13 +897,24 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
     const poetryElementRef = useRef(null);
     const speechHelperRef = useRef(speechHelper);
     const { isMuted, toggleMuted } = useSoundsHelper(soundsHelper);
+    const [maxResultsRevealData, setMaxResultsRevealData] = useState<{currentPoetryLine: number, currentPoetry: number}>({currentPoetryLine: -1, currentPoetry: -1});
 
     const onRevealNextResult = () => {
         const {currentPoetryLine, currentPoetry} = resultsRevealData;
-        if (currentPoetry < 0 || (currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1)) {
+
+        if (maxResultsRevealData.currentPoetry >= currentPoetry + 1) {
+            onRevealResult(currentPoetry + 1, maxResultsRevealData.currentPoetry === currentPoetry + 1 ? maxResultsRevealData.currentPoetryLine : poeties[currentPoetry + 1].length - 1);
+        } else if (currentPoetry < 0 || (currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1)) {
             onRevealResult(currentPoetry + 1, -1);
         } else {
             onRevealResult(currentPoetry, currentPoetryLine + 1);
+        }
+    };
+
+    const onRevealPrevResult = () => {
+        const {currentPoetry} = resultsRevealData;
+        if (currentPoetry > 0) {
+            onRevealResult(currentPoetry - 1, poeties[currentPoetry - 1].length - 1);
         }
     };
 
@@ -960,6 +972,17 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
         const {currentPoetryLine, currentPoetry} = resultsRevealData;
 
         if (
+            currentPoetry > maxResultsRevealData.currentPoetry ||
+            (currentPoetry === maxResultsRevealData.currentPoetry && currentPoetryLine > maxResultsRevealData.currentPoetryLine)
+        ) {
+            setMaxResultsRevealData({currentPoetry,currentPoetryLine});
+        }
+    }, [resultsRevealData]);
+
+    useEffect(() => {
+        const {currentPoetryLine, currentPoetry} = maxResultsRevealData;
+
+        if (
             currentPoetry >= 0 &&
             currentPoetryLine >= 0 &&
             poeties[currentPoetry] &&
@@ -967,7 +990,7 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
         ) {
             speechHelperRef.current.speak(poeties[currentPoetry][currentPoetryLine].text);
         }
-    }, [resultsRevealData]);
+    }, [maxResultsRevealData])
 
     const {currentPoetryLine, currentPoetry} = resultsRevealData;
     const isPoetryFullyRevealed = currentPoetry >= 0 && poeties[currentPoetry] && currentPoetryLine >= 0 && currentPoetryLine === poeties[currentPoetry].length - 1;
@@ -1017,6 +1040,12 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
                 )}
                 <Grid.Row>
                     <Grid.Column textAlign="center">
+                        {isHost && currentPoetry > 0 && (
+                            <Button primary onClick={onRevealPrevResult}>
+                                <Icon name="arrow left"/>
+                                {t('gameResultsPrevButton')}
+                            </Button>
+                        )}
                         {isPoetryFullyRevealed && (
                             <Button primary onClick={onSave}>
                                 <Icon name="photo"/>
