@@ -431,7 +431,11 @@ function Login({
     }, []);
 
     useEffect(() => {
-        if (avatarHistoryIndex >= avatarHistory.length) {
+        if (avatarHistory[avatarHistoryIndex]) {
+            const newAvatar = avatarHistory[avatarHistoryIndex];
+            storage.setItem('avatar', newAvatar);
+            setAvatar(newAvatar);
+        } else {
             //const newAvatar = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(multiavatar(nanoid()))))}`;
             const newAvatar = process.env.NODE_ENV === 'production' && process.env.REACT_APP_GET_AVATARS_FROM === 'sameOrigin' ? `${process.env.PUBLIC_URL}/avatar/${nanoid()}` : `https://api.multiavatar.com/${nanoid()}.svg`;
             const index = avatarHistoryIndex;
@@ -440,11 +444,6 @@ function Login({
                 newAvatarHistory[index] = newAvatar;
                 return newAvatarHistory;
             });
-        }
-        if (avatarHistory[avatarHistoryIndex]) {
-            const newAvatar = avatarHistory[avatarHistoryIndex];
-            storage.setItem('avatar', newAvatar);
-            setAvatar(newAvatar);
         }
     }, [avatarHistoryIndex, avatarHistory]);
 
