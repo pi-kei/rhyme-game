@@ -54,26 +54,27 @@ function wrapText(context: CanvasRenderingContext2D, text: string, x: number, y:
 
     while (words.length > 0) {
         let line = '';
+        let lineWidth = 0;
         for (let w = 0; w < words.length; ++w) {
             const metrics = context.measureText(line + (line.length ? " " : "") + words[w]);
             if (metrics.width > maxWidth) {
                 if (w === 0) {
                     // word is too wide
-                    line += (line.length ? " " : "") + words[w];
+                    line = words[0];
                     words = words.slice(w + 1);
+                    context.fillText(line, x + maxWidth - metrics.width, y);
                 } else {
                     words = words.slice(w);
+                    context.fillText(line, x + maxWidth - lineWidth, y);
                 }
-                context.fillText(line, x, y);
                 y += lineHeight;
                 break;
-            } else {
-                line += (line.length ? " " : "") + words[w];
             }
+            line += (line.length ? " " : "") + words[w];
+            lineWidth = metrics.width;
             if (w === words.length - 1) {
                 words.length = 0;
-                context.fillText(line, x /*+ maxWidth - metrics.width*/, y);
-                //y += lineHeight;
+                context.fillText(line, x + maxWidth - lineWidth, y);
             }
         }
     }

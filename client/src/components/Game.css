@@ -21,11 +21,7 @@
 .ui.segment.poetry-line {
     margin-top: 0;
     margin-left: 2rem;
-    text-align-last: right;
-}
-
-.ui.segment.poetry-line::first-line {
-    text-align-last: left;
+    text-align: right;
 }
 
 .poetry-line-block {
