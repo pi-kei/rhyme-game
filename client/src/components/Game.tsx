@@ -803,7 +803,7 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
         if (!sent) {
             setTimeout(() => inputRef.current?.focus(), 0);
         }
-    }, [sent]);
+    }, [stepData?.step, sent]);
 
     if (!stepData) {
         return null;
@@ -907,6 +907,7 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
     const speechHelperRef = useRef(speechHelper);
     const { isMuted, toggleMuted } = useSoundsHelper(soundsHelper);
     const [maxResultsRevealData, setMaxResultsRevealData] = useState<{currentPoetryLine: number, currentPoetry: number}>({currentPoetryLine: -1, currentPoetry: -1});
+    const buttonsRef = useRef<HTMLDivElement>(null);
 
     const onRevealNextResult = () => {
         const {currentPoetryLine, currentPoetry} = resultsRevealData;
@@ -986,6 +987,10 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
         ) {
             setMaxResultsRevealData({currentPoetry,currentPoetryLine});
         }
+
+        if (buttonsRef.current) {
+            buttonsRef.current.scrollIntoView({block:'end',behavior:'smooth'});
+        }
     }, [resultsRevealData]);
 
     useEffect(() => {
@@ -1031,13 +1036,13 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
                             <Grid.Column>
                                 {poeties[currentPoetry].map((line: {playerId: string, avatar: string, name: string, text: string}, index: number) => {
                                     return (
-                                            <div className="poetry-line-block" key={`poetry-line-${line.playerId}`}>
-                                                {(index <= currentPoetryLine + 1) ? (
-                                                    <>
-                                            <div>{line.avatar && (<Image avatar src={line.avatar} />)}{line.name}:</div>
-                                                        <Segment className="poetry-line">{index <= currentPoetryLine ? line.text : '...'}</Segment>
-                                                    </>
-                                                ) : null}
+                                        <div className="poetry-line-block" key={`poetry-line-${line.playerId}`}>
+                                            {(index <= currentPoetryLine + 1) ? (
+                                                <>
+                                                    <div>{line.avatar && (<Image avatar src={line.avatar} />)}{line.name}:</div>
+                                                    <Segment className="poetry-line">{index <= currentPoetryLine ? line.text : '...'}</Segment>
+                                                </>
+                                            ) : null}
                                         </div>
                                     );
                                 })}
@@ -1047,34 +1052,36 @@ function GameResults({ resultsData, players, hostId, selfId, muteTts, resultsRev
                         <Divider horizontal>∗ ∗ ∗</Divider>
                     </>
                 )}
-                <Grid.Row>
-                    <Grid.Column textAlign="center">
-                        {isHost && currentPoetry > 0 && (
-                            <Button primary onClick={onRevealPrevResult}>
-                                <Icon name="arrow left"/>
-                                {t('gameResultsPrevButton')}
-                            </Button>
-                        )}
-                        {isPoetryFullyRevealed && (
-                            <Button primary onClick={onSave}>
-                                <Icon name="photo"/>
-                                {t('gameResultsSaveButton')}
-                            </Button>
-                        )}
-                        {isHost && !isAllPoetriesRevealed && (
-                            <Button primary onClick={onRevealNextResult}>
-                                {t('gameResultsNextButton')}
-                                <Icon name="arrow right"/>
-                            </Button>
-                        )}
-                        {isHost && isAllPoetriesRevealed && (
-                            <Button primary onClick={onNewRound}>
-                                {t('gameResultsNewRoundButton')}
-                                <Icon name="arrow right"/>
-                            </Button>
-                        )}
-                    </Grid.Column>
-                </Grid.Row>
+                <Ref innerRef={buttonsRef}>
+                    <Grid.Row>
+                        <Grid.Column textAlign="center">
+                            {isHost && currentPoetry > 0 && (
+                                <Button primary onClick={onRevealPrevResult}>
+                                    <Icon name="arrow left"/>
+                                    {t('gameResultsPrevButton')}
+                                </Button>
+                            )}
+                            {isPoetryFullyRevealed && (
+                                <Button primary onClick={onSave}>
+                                    <Icon name="photo"/>
+                                    {t('gameResultsSaveButton')}
+                                </Button>
+                            )}
+                            {isHost && !isAllPoetriesRevealed && (
+                                <Button primary onClick={onRevealNextResult}>
+                                    {t('gameResultsNextButton')}
+                                    <Icon name="arrow right"/>
+                                </Button>
+                            )}
+                            {isHost && isAllPoetriesRevealed && (
+                                <Button primary onClick={onNewRound}>
+                                    {t('gameResultsNewRoundButton')}
+                                    <Icon name="arrow right"/>
+                                </Button>
+                            )}
+                        </Grid.Column>
+                    </Grid.Row>
+                </Ref>
             </Grid>
         </Container>
     );
