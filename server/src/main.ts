@@ -16,7 +16,8 @@ let InitModule: nkruntime.InitModule = function(ctx: nkruntime.Context, logger: 
 };
 
 let createMatchRpc: nkruntime.RpcFunction = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, payload: string): string | void {
-    const matchId = nk.matchCreate(moduleName);
+    const { lang } = JSON.parse(payload);
+    const matchId = nk.matchCreate(moduleName, { lang });
 
     logger.debug('Created match with ID: %s', matchId);
 
@@ -36,6 +37,7 @@ const maxRevealPercent: number = 50;
 interface GameState {
     stage: Stage,
     settings: {
+        lang: 'en' | 'ru',
         maxPlayers: number,
         showFullPreviousLine: boolean,
         revealLastWordInLines: boolean,
@@ -96,6 +98,7 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
     const initialState: GameState = {
         stage: 'gettingReady',
         settings: {
+            lang: params.lang === 'ru' ? 'ru' : 'en',
             maxPlayers,
             showFullPreviousLine: true,
             revealLastWordInLines: true,

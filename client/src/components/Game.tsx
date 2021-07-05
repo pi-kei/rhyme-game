@@ -1,7 +1,7 @@
 import { Button, Checkbox, CheckboxProps, Confirm, Container, Divider, Dropdown, DropdownProps, Form, Grid, Header, Icon, Image, Input, InputOnChangeData, InputProps, List, Popup, Progress, Ref, Segment, Transition } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
-import React, { SyntheticEvent, useEffect, useReducer, useRef, useState } from "react";
+import React, { SyntheticEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animals } from 'unique-names-generator';
 //import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
@@ -110,7 +110,7 @@ function useSoundsHelper(soundsHelper: SoundsHelper) {
 }
 
 function Game() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { id: gameId } = useParams<{id: string | undefined}>();
     const history = useHistory();
     const {appendMessage} = useAlertContext();
@@ -154,7 +154,7 @@ function Game() {
                 storage.setItem('nakamaToken', jwt);
                 return nakamaHelperRef.current.updateAccount(userName, avatar);
             })
-            .then(() => nakamaHelperRef.current.joinOrCreateMatch(storage.getItem('matchId')))
+            .then(() => nakamaHelperRef.current.joinOrCreateMatch(storage.getItem('matchId'), {lang: i18n.language}))
             .then(onMatchJoined)
             .catch(handleError);
     };
@@ -356,7 +356,7 @@ function Game() {
                 />
             )}
             {currentState === 'game' && (
-                <GameSteps stepData={stepData} readyState={readyState} onInput={onInput} />
+                <GameSteps settings={settings} stepData={stepData} readyState={readyState} onInput={onInput} />
             )}
             {currentState === 'results' && (
                 <GameResults
@@ -748,18 +748,22 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
 }
 
 interface GameStepsProps {
+    settings: any,
     stepData: any,
     readyState?: {ready: number, total: number},
     onInput: (step: number, input: string, ready: boolean) => void
 }
 
-function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
+function GameSteps({settings, stepData, readyState, onInput}: GameStepsProps) {
     const { t } = useTranslation();
     const [timerState, timerReset] = useCountdownTimer(0, false);
     const [sent, setSent] = useState<boolean>(false);
     const [input, setInput] = useState<string>('');
     const { isMuted, toggleMuted, playSound } = useSoundsHelper(soundsHelper);
     const inputRef = useRef<HTMLInputElement>(null);
+    const inputRegexp = useMemo(() => {
+        return new RegExp(`[^${settings && settings.lang === 'ru' ? 'а-яё' : 'a-z'}\\p{Zs}\\p{P}]`, "giu");
+    }, [settings && settings.lang]);
 
     const onButtonClick = () => {
         if (!input && !sent) {
@@ -771,7 +775,7 @@ function GameSteps({stepData, readyState, onInput}: GameStepsProps) {
     };
 
     const onInputChange = (event: React.ChangeEvent, data: InputOnChangeData) => {
-        const newInput = data.value.replaceAll(/[^\p{L}\p{Zs}\p{P}]/gu, '');
+        const newInput = data.value.replaceAll(inputRegexp, '');
         setInput(newInput);
         onInput(stepData.step, newInput, sent);
     };

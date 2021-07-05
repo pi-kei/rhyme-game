@@ -102,12 +102,12 @@ export default class NakamaHelper {
         return users;
     }
 
-    async joinOrCreateMatch(matchId: string | null | undefined): Promise<nakamajs.Match> {
+    async joinOrCreateMatch(matchId: string | null | undefined, input?: object): Promise<nakamajs.Match> {
         await this.leaveCurrentMatch();
         
         if (!matchId) {
             await this.reauth();
-            const rpcResponse = await this.client!.rpc(this.session!, 'create_match_server_authoritative', {});
+            const rpcResponse = await this.client!.rpc(this.session!, 'create_match_server_authoritative', input || {});
             matchId = (rpcResponse.payload as {match_id: string}).match_id;
         }
 
