@@ -9,7 +9,8 @@ let InitModule: nkruntime.InitModule = function(ctx: nkruntime.Context, logger: 
         matchJoin,
         matchLoop,
         matchLeave,
-        matchTerminate
+        matchTerminate,
+        matchSignal
     });
 
     logger.info('JavaScript logic loaded.');
@@ -185,12 +186,10 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
 
     if (gameState.host) {
         logger.debug('Sending HOST_CHANGED');
-        // NOTE: can't specify presences. See https://github.com/heroiclabs/nakama/issues/620
-        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData)/*, presences*/);
+        dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData), presences);
     }
 
-    // NOTE: can't specify presences. See https://github.com/heroiclabs/nakama/issues/620
-    dispatcher.broadcastMessage(OpCode.SETTINGS_UPDATE, encodeMessageData(gameState.settings));
+    dispatcher.broadcastMessage(OpCode.SETTINGS_UPDATE, encodeMessageData(gameState.settings), presences);
     
     return {
         state: gameState
@@ -478,4 +477,8 @@ let matchTerminate: nkruntime.MatchTerminateFunction = function(ctx: nkruntime.C
     return {
         state
     };
+};
+
+let matchSignal: nkruntime.MatchSignalFunction = function(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, dispatcher: nkruntime.MatchDispatcher, tick: number, state: nkruntime.MatchState, data: string): {state: nkruntime.MatchState, data?: string} | null {
+    return null;
 };

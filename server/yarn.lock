@@ -4,7 +4,7 @@
 
 "nakama-runtime@https://github.com/heroiclabs/nakama-common":
   version "1.10.0"
-  resolved "https://github.com/heroiclabs/nakama-common#24296ee1aa72d179c7ac84748e6c09f436674256"
+  resolved "https://github.com/heroiclabs/nakama-common#f2c0b596a84c40eff34116c3f35f9eff1acc7bb2"
 
 typescript@^4.3.2:
   version "4.3.2"

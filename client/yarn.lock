@@ -1234,10 +1234,10 @@
   dependencies:
     "@hapi/hoek" "^8.3.0"
 
-"@heroiclabs/nakama-js@^2.1.5":
-  version "2.1.5"
-  resolved "https://registry.yarnpkg.com/@heroiclabs/nakama-js/-/nakama-js-2.1.5.tgz#88f9e3386eabce02ba4818d0c20c27d2ffad811c"
-  integrity sha512-bCsKp6SgQ+7kKjT+cRgr/9mCLka69dVma0cfGb5HbtaytERcygZLen5oTYFCn93a45uAsNM8DmjohCpSOAUIMA==
+"@heroiclabs/nakama-js@^2.3.0":
+  version "2.3.0"
+  resolved "https://registry.yarnpkg.com/@heroiclabs/nakama-js/-/nakama-js-2.3.0.tgz#a5e8da5dc64f54159ad8a9a15fc5331b56fe538d"
+  integrity sha512-SXRumw8ttVjXXowGR6WfxU66a0j44GwKfIk5O3YygAHGjScPkJjyh/Kl7fc61+zD8VsKObuQMni2gh6Y5h/u7A==
   dependencies:
     js-base64 "^3.6.0"
     whatwg-fetch "^2.0.3"

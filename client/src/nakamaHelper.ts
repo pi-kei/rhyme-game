@@ -16,6 +16,7 @@ export default class NakamaHelper {
     private onErrorHandler: ((event: Event) => void) | undefined;
     private onMatchPresenceHandler: ((event: nakamajs.MatchPresenceEvent) => void) | undefined;
     private onMatchDataHandler: ((event: nakamajs.MatchData) => void) | undefined;
+    private onTokensUpdateHandler: ((token?: string, refreshToken?: string) => void) | undefined;
 
     constructor(serverKey: string | undefined, host: string | undefined, port: string | undefined, useSSL: boolean | undefined) {
         this.serverKey = serverKey;
@@ -48,7 +49,11 @@ export default class NakamaHelper {
         this.onMatchDataHandler = value;
     }
 
-    async auth(customId: string, jwt: string | null | undefined): Promise<string> {
+    set onTokensUpdate(value: ((token?: string, refreshToken?: string) => void) | undefined) {
+        this.onTokensUpdateHandler = value;
+    }
+
+    async auth(customId: string, token?: string | null, refreshToken?: string | null): Promise<void> {
         if (this.customId && this.customId !== customId) {
             // force session, socket and match to reinit
             this.session = undefined;
@@ -60,11 +65,11 @@ export default class NakamaHelper {
         }
         this.customId = customId;
         if (!this.client) {
-            this.client = new nakamajs.Client(this.serverKey, this.host, this.port, this.useSSL);
+            this.client = new nakamajs.Client(this.serverKey, this.host, this.port, this.useSSL, undefined, false);
         }
-        if (!this.session && jwt) {
+        if (!this.session && token && refreshToken) {
             try {
-                this.session = nakamajs.Session.restore(jwt);
+                this.session = nakamajs.Session.restore(token, refreshToken);
             } catch (error) {
                 // ignore
             }
@@ -81,8 +86,6 @@ export default class NakamaHelper {
                 }
             }
         }
-
-        return this.session!.token;
     }
 
     async updateAccount(userName: string, avatar: string): Promise<boolean> {
@@ -131,9 +134,22 @@ export default class NakamaHelper {
     }
 
     private async reauth(): Promise<void> {
-        // NOTE: renew session even if it has few minutes before expiration
-        if (!this.session || this.session.isexpired(Math.floor(Date.now() / 1000) - 5 * 60)) {
+        // NOTE: renew session even if it has some time before expiration
+        let isSessionUpdated: boolean = false;
+        if (!this.session || !this.session.refresh_token || this.session.isrefreshexpired(Math.floor(Date.now() / 1000) + 5 * 60)) {
             this.session = await this.client!.authenticateCustom(this.customId!, true);
+            isSessionUpdated = true;
+        } else if (this.session.isexpired(Math.floor(Date.now() / 1000) + 5)) {
+            try {
+                this.session = await this.client!.sessionRefresh(this.session);
+            } catch (error) {
+                // Refresh may fail if refresh token actually expired on server side
+                this.session = await this.client!.authenticateCustom(this.customId!, true);
+            }
+            isSessionUpdated = true;
+        }
+        if (isSessionUpdated && this.onTokensUpdateHandler) {
+            this.onTokensUpdateHandler(this.session.token, this.session.refresh_token);
         }
     }
 

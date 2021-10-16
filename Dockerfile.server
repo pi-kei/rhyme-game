@@ -5,7 +5,7 @@ RUN yarn install
 ENV NODE_ENV production
 RUN yarn build
 
-FROM heroiclabs/nakama:3.3.0
+FROM heroiclabs/nakama:3.8.0
 COPY --from=builder /home/node/app/data/modules /nakama/data/modules
 EXPOSE 7349 7350 7351
 ARG DATABASE_URL=${DATABASE_URL}
@@ -16,7 +16,7 @@ ARG NAKAMA_SESSION_ENCRYPTION_KEY=${NAKAMA_SESSION_ENCRYPTION_KEY}
 ARG NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY=${NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY}
 ARG NAKAMA_SOCKET_SERVER_KEY=${NAKAMA_SOCKET_SERVER_KEY}
 ARG NAKAMA_RUNTIME_HTTP_KEY=${NAKAMA_RUNTIME_HTTP_KEY}
-ENTRYPOINT [ "/bin/sh", "-ecx", "/nakama/nakama migrate up --database.address $DATABASE_URL && exec /nakama/nakama --name nakama1 --database.address $DATABASE_URL --console.username $NAKAMA_CONSOLE_USERNAME --console.password $NAKAMA_CONSOLE_PASSWORD --console.signing_key $NAKAMA_CONSOLE_SIGNING_KEY --logger.level DEBUG --session.encryption_key $NAKAMA_SESSION_ENCRYPTION_KEY --session.refresh_encryption_key $NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY --session.token_expiry_sec 7200 --runtime.http_key $NAKAMA_RUNTIME_HTTP_KEY --runtime.js_entrypoint index.js --match.max_empty_sec 30 --socket.server_key $NAKAMA_SOCKET_SERVER_KEY" ]
+ENTRYPOINT [ "/bin/sh", "-ecx", "/nakama/nakama migrate up --database.address $DATABASE_URL && exec /nakama/nakama --name nakama1 --database.address $DATABASE_URL --console.username $NAKAMA_CONSOLE_USERNAME --console.password $NAKAMA_CONSOLE_PASSWORD --console.signing_key $NAKAMA_CONSOLE_SIGNING_KEY --logger.level DEBUG --session.encryption_key $NAKAMA_SESSION_ENCRYPTION_KEY --session.refresh_encryption_key $NAKAMA_SESSION_REFRESH_ENCRYPTION_KEY --session.token_expiry_sec 60 --session.refresh_token_expiry_sec 3600 --runtime.http_key $NAKAMA_RUNTIME_HTTP_KEY --runtime.js_entrypoint index.js --match.max_empty_sec 30 --socket.server_key $NAKAMA_SOCKET_SERVER_KEY" ]
 #HEALTHCHECK --interval=10s --timeout=5s --retries=5 CMD curl -f http://localhost:7350/ || exit 1
 
 

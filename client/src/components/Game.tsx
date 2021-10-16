@@ -149,14 +149,22 @@ function Game() {
     };
 
     const onLogin = (customId: string, userName: string, avatar: string) => {
-        nakamaHelperRef.current.auth(customId, storage.getItem('nakamaToken'))
-            .then((jwt: string) => {
-                storage.setItem('nakamaToken', jwt);
-                return nakamaHelperRef.current.updateAccount(userName, avatar);
-            })
+        nakamaHelperRef.current.auth(customId, storage.getItem('nakamaToken'), storage.getItem('nakamaRefreshToken'))
+            .then(() => nakamaHelperRef.current.updateAccount(userName, avatar))
             .then(() => nakamaHelperRef.current.joinOrCreateMatch(storage.getItem('matchId'), {lang: i18n.language}))
             .then(onMatchJoined)
             .catch(handleError);
+    };
+
+    const onTokensUpdate = (token?: string, refreshToken?: string) => {
+        console.info("Tokens update");
+
+        if (token) {
+            storage.setItem('nakamaToken', token);
+        }
+        if (refreshToken) {
+            storage.setItem('nakamaRefreshToken', refreshToken);
+        }
     };
 
     const onDisconnect = (event: Event) => {
@@ -321,12 +329,14 @@ function Game() {
         nakamaHelperRef.current.onError = onError;
         nakamaHelperRef.current.onMatchPresence = onMatchPresence;
         nakamaHelperRef.current.onMatchData = onMatchData;
+        nakamaHelperRef.current.onTokensUpdate = onTokensUpdate;
 
         return () => {
             nakamaHelperRef.current.onDisconnect = undefined;
             nakamaHelperRef.current.onError = undefined;
             nakamaHelperRef.current.onMatchPresence = undefined;
             nakamaHelperRef.current.onMatchData = undefined;
+            nakamaHelperRef.current.onTokensUpdate = undefined;
         };
     });
 
