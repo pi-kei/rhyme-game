@@ -1,4 +1,5 @@
 import * as nakamajs from "@heroiclabs/nakama-js";
+import retry from './retry';
 
 export default class NakamaHelper {
     readonly serverKey: string | undefined;
@@ -90,17 +91,17 @@ export default class NakamaHelper {
 
     async updateAccount(userName: string, avatar: string): Promise<boolean> {
         await this.reauth();
-        const result = await this.client!.updateAccount(this.session!, {
+        const result = await retry<boolean>(() => this.client!.updateAccount(this.session!, {
             display_name: userName,
             avatar_url: avatar
-        });
+        }));
 
         return result;
     }
 
     async getUsers(ids: string[]): Promise<nakamajs.User[]> {
         await this.reauth();
-        const users: nakamajs.User[] = (await this.client!.getUsers(this.session!, ids)).users || [];
+        const users: nakamajs.User[] = (await retry<nakamajs.Users>(() => this.client!.getUsers(this.session!, ids))).users || [];
         
         return users;
     }
@@ -110,7 +111,7 @@ export default class NakamaHelper {
         
         if (!matchId) {
             await this.reauth();
-            const rpcResponse = await this.client!.rpc(this.session!, 'create_match_server_authoritative', input || {});
+            const rpcResponse = await retry(() => this.client!.rpc(this.session!, 'create_match_server_authoritative', input || {}));
             matchId = (rpcResponse.payload as {match_id: string}).match_id;
         }
 
@@ -137,14 +138,14 @@ export default class NakamaHelper {
         // NOTE: renew session even if it has some time before expiration
         let isSessionUpdated: boolean = false;
         if (!this.session || !this.session.refresh_token || this.session.isrefreshexpired(Math.floor(Date.now() / 1000) + 5 * 60)) {
-            this.session = await this.client!.authenticateCustom(this.customId!, true);
+            this.session = await retry<nakamajs.Session>(() => this.client!.authenticateCustom(this.customId!, true));
             isSessionUpdated = true;
         } else if (this.session.isexpired(Math.floor(Date.now() / 1000) + 5)) {
             try {
                 this.session = await this.client!.sessionRefresh(this.session);
             } catch (error) {
                 // Refresh may fail if refresh token actually expired on server side
-                this.session = await this.client!.authenticateCustom(this.customId!, true);
+                this.session = await retry<nakamajs.Session>(() => this.client!.authenticateCustom(this.customId!, true));
             }
             isSessionUpdated = true;
         }
