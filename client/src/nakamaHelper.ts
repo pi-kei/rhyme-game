@@ -13,7 +13,8 @@ export default class NakamaHelper {
     private socket: nakamajs.Socket | undefined;
     private matchId: string | undefined;
 
-    private onDisconnectHandler: ((event: Event) => void) | undefined;
+    private onDisconnectHandler: (() => void) | undefined;
+    private onReconnectHandler: ((matchId: string | undefined) => void) | undefined;
     private onErrorHandler: ((event: Event) => void) | undefined;
     private onMatchPresenceHandler: ((event: nakamajs.MatchPresenceEvent) => void) | undefined;
     private onMatchDataHandler: ((event: nakamajs.MatchData) => void) | undefined;
@@ -34,8 +35,12 @@ export default class NakamaHelper {
         return this.matchId;
     }
 
-    set onDisconnect(value: ((event: Event) => void) | undefined) {
+    set onDisconnect(value: (() => void) | undefined) {
         this.onDisconnectHandler = value;
+    }
+
+    set onReconnect(value: ((matchId: string | undefined) => void) | undefined) {
+        this.onReconnectHandler = value;
     }
 
     set onError(value: ((event: Event) => void) | undefined) {
@@ -59,6 +64,10 @@ export default class NakamaHelper {
             // force session, socket and match to reinit
             this.session = undefined;
             if (this.socket) {
+                this.socket.ondisconnect = () => undefined;
+                this.socket.onerror = () => undefined;
+                this.socket.onmatchpresence = () => undefined;
+                this.socket.onmatchdata = () => undefined;
                 this.socket.disconnect(false);
                 this.socket = undefined;
             }
@@ -123,7 +132,7 @@ export default class NakamaHelper {
     }
 
     async leaveCurrentMatch(): Promise<void> {
-        if (this.matchId) {
+        if (this.socket && this.matchId) {
             const matchId = this.matchId;
             this.matchId = undefined;
             await this.socket!.leaveMatch(matchId);
@@ -131,7 +140,9 @@ export default class NakamaHelper {
     }
 
     async sendMatchMessage(opCode: number, data: any): Promise<void> {
-        await this.socket!.sendMatchState(this.matchId!, opCode, data);
+        if (this.socket && this.matchId) {
+            await this.socket!.sendMatchState(this.matchId!, opCode, data);
+        }
     }
 
     private async reauth(): Promise<void> {
@@ -155,37 +166,62 @@ export default class NakamaHelper {
     }
 
     private async createSocket(): Promise<void> {
-        this.socket = this.client!.createSocket(this.useSSL, true);
-        this.socket.ondisconnect = (event: Event) => {
-            this.socket = undefined;
-            this.matchId = undefined;
-            if (this.onDisconnectHandler) {
-                this.onDisconnectHandler(event);
-            }
-        };
-        this.socket.onerror = (event: Event) => {
-            if (this.onErrorHandler) {
-                this.onErrorHandler(event);
-            }
-        };
-        this.socket.onmatchpresence = (event: nakamajs.MatchPresenceEvent) => {
-            if (this.onMatchPresenceHandler) {
-                this.onMatchPresenceHandler(event);
-            }
-        };
-        this.socket.onmatchdata = (event: nakamajs.MatchData) => {
-            if (this.onMatchDataHandler) {
-                this.onMatchDataHandler(event);
-            }
-        };
+        const socket = this.client!.createSocket(this.useSSL, true);
         try {
-            this.session = await this.socket.connect(this.session!, false);
+            await this.reauth();
+            this.session = await socket.connect(this.session!, false);
+            socket.ondisconnect = (event: Event) => {
+                socket.ondisconnect = () => undefined;
+                socket.onerror = () => undefined;
+                socket.onmatchpresence = () => undefined;
+                socket.onmatchdata = () => undefined;
+                if (this.socket !== socket) {
+                    return;
+                }
+                this.socket = undefined;
+                const matchId = this.matchId;
+                this.matchId = undefined;
+                retry(async () => {
+                    await this.createSocket();
+                    if (!this.socket) {
+                        throw new Error('Connection failed');
+                    }
+                }).then(() => {
+                    if (this.onReconnectHandler) {
+                        this.onReconnectHandler(matchId);
+                    }
+                }).catch(() => {
+                    if (this.onDisconnectHandler) {
+                        this.onDisconnectHandler();
+                    }
+                });
+            };
+            socket.onerror = (event: Event) => {
+                if (this.onErrorHandler) {
+                    this.onErrorHandler(event);
+                }
+            };
+            socket.onmatchpresence = (event: nakamajs.MatchPresenceEvent) => {
+                if (this.onMatchPresenceHandler) {
+                    this.onMatchPresenceHandler(event);
+                }
+            };
+            socket.onmatchdata = (event: nakamajs.MatchData) => {
+                if (this.onMatchDataHandler) {
+                    this.onMatchDataHandler(event);
+                }
+            };
+            if (this.socket) {
+                this.socket.ondisconnect = () => undefined;
+                this.socket.onerror = () => undefined;
+                this.socket.onmatchpresence = () => undefined;
+                this.socket.onmatchdata = () => undefined;
+                this.socket.disconnect(false);
+                this.socket = undefined;
+            }
+            this.socket = socket;
         } catch (error) {
-            this.socket.ondisconnect = () => undefined;
-            this.socket.onerror = () => undefined;
-            this.socket.onmatchpresence = () => undefined;
-            this.socket.onmatchdata = () => undefined;
-            this.socket = undefined;
+            // ignore
         }
     }
 }

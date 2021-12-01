@@ -167,18 +167,41 @@ function Game() {
         }
     };
 
-    const onDisconnect = (event: Event) => {
-        console.info("Disconnected from the server. Event:", event);
+    const onDisconnect = () => {
+        console.info("Disconnected from the server");
 
         playSound('error');
 
         setCurrentState('login');
-        setPlayers([]);
+        setPlayers(prevPlayers => []);
         setHostId('');
+    };
+
+    const onReconnect = (matchId: string | undefined) => {
+        console.info("Reconnected to the server");
+
+        if (!matchId) {
+            return;
+        }
+        nakamaHelperRef.current.joinOrCreateMatch(matchId, {lang: i18n.language})
+            .then(onMatchRejoined)
+            .catch(handleError);
     };
 
     const onError = (event: Event) => {
         console.info("Error from the server. Event:", event);
+    };
+
+    const handlePresenceUpdate = (joins?: nakamajs.Presence[], leaves?: nakamajs.Presence[]) => {
+        if (leaves && leaves.length && !(joins && joins.length)) {
+            setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)));
+        } else if (joins && joins.length) {
+            nakamaHelperRef.current.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
+                .then((users: nakamajs.User[]) => {
+                    setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)) : prevPlayers).concat(toPlayerInfo(users)));
+                })
+                .catch(handleError);
+        }
     };
 
     const onMatchPresence = (matchPresence: nakamajs.MatchPresenceEvent) => {
@@ -195,16 +218,8 @@ function Game() {
             playSound('left');
         }
 
-        if (leaves && leaves.length && !(joins && joins.length)) {
-            setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)));
-        } else if (joins && joins.length) {
-            nakamaHelperRef.current.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
-                .then((users: nakamajs.User[]) => {
-                    setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)) : prevPlayers).concat(toPlayerInfo(users)));
-                })
-                .catch(handleError);
-        }
-    }
+        handlePresenceUpdate(joins, leaves);
+    };
 
     const onMatchData = (matchData: nakamajs.MatchData) => {
         console.info("Received match data:", matchData);
@@ -216,18 +231,20 @@ function Game() {
             setSettings(matchData.data);
         } else if (matchData.op_code === OpCode.STAGE_CHANGED) {
             const messageData: StageChangedMessageData = matchData.data;
-            if (messageData.stage === 'inProgress') {
-                setCurrentState('game');
-            } else if (messageData.stage === 'results') {
-                setResultsRevealData({currentPoetry: -1, currentPoetryLine: -1});
-                setCurrentState('results');
-                setStepData(undefined);
-            } else if (messageData.stage === 'gettingReady') {
-                setCurrentState('lobby');
-                setResultsData(undefined);
-                setPlayers(prevPlayers => filterLeft(prevPlayers, [], false));
+            if (currentState !== messageData.stage) {
+                if (messageData.stage === 'inProgress') {
+                    setCurrentState('game');
+                } else if (messageData.stage === 'results') {
+                    setResultsRevealData({currentPoetry: -1, currentPoetryLine: -1});
+                    setCurrentState('results');
+                    setStepData(undefined);
+                } else if (messageData.stage === 'gettingReady') {
+                    setCurrentState('lobby');
+                    setResultsData(undefined);
+                    setPlayers(prevPlayers => filterLeft(prevPlayers, [], false));
+                }
+                playSound('stage');
             }
-            playSound('stage');
         } else if (matchData.op_code === OpCode.NEXT_STEP) {
             setStepData(matchData.data);
         } else if (matchData.op_code === OpCode.RESULTS) {
@@ -247,13 +264,22 @@ function Game() {
         storage.setItem('matchId', match.match_id);
 
         const presences = match.presences;
-        if (presences && presences.length) {
-            nakamaHelperRef.current.getUsers(presences.map((p: nakamajs.Presence) => p.user_id))
-                .then((users: nakamajs.User[]) => {
-                    setPlayers(prevPlayers => prevPlayers.concat(toPlayerInfo(users)));
-                })
-                .catch(handleError);
-        }
+        handlePresenceUpdate(presences);
+    };
+
+    const onMatchRejoined = (match: nakamajs.Match) => {
+        console.log("onMatchRejoined", match);
+
+        const presences = match.presences;
+        const joins = presences.filter(presence => !players.some(player => player.id === presence.user_id));
+        const leaves = players.filter(player => !presences.some(presence => player.id === presence.user_id)).map(player => ({
+            user_id: player.id,
+            session_id: '', // don't care about this value
+            username: '', // don't care about this value
+            node: '', // don't care about this value
+        }) as nakamajs.Presence);
+        
+        handlePresenceUpdate(joins, leaves);
     };
 
     const onKick = (userId: string) => {
@@ -326,6 +352,7 @@ function Game() {
 
     useEffect(() => {
         nakamaHelperRef.current.onDisconnect = onDisconnect;
+        nakamaHelperRef.current.onReconnect = onReconnect;
         nakamaHelperRef.current.onError = onError;
         nakamaHelperRef.current.onMatchPresence = onMatchPresence;
         nakamaHelperRef.current.onMatchData = onMatchData;
@@ -333,6 +360,7 @@ function Game() {
 
         return () => {
             nakamaHelperRef.current.onDisconnect = undefined;
+            nakamaHelperRef.current.onReconnect = undefined;
             nakamaHelperRef.current.onError = undefined;
             nakamaHelperRef.current.onMatchPresence = undefined;
             nakamaHelperRef.current.onMatchData = undefined;
