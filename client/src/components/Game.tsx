@@ -260,7 +260,6 @@ function Game() {
 
     const onMatchJoined = (match: nakamajs.Match) => {
         console.log("onMatchJoined", match);
-        setCurrentState('lobby');
         storage.setItem('matchId', match.match_id);
 
         const presences = match.presences;
