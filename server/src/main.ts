@@ -59,7 +59,8 @@ interface GameState {
     currentStep: number,
     nextStepAt: number,
     playersReadyForNextStep: {[userId: string]: true},
-    playerToResult: {[userId: string]: string[]}
+    playerToResult: {[userId: string]: string[]},
+    lastRevealResultData: any
 }
 
 function genRoundSteps(gameState: GameState) {
@@ -120,7 +121,8 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
         currentStep: NaN,
         nextStepAt: NaN,
         playersReadyForNextStep: {},
-        playerToResult: {}
+        playerToResult: {},
+        lastRevealResultData: undefined
     };
 
     return {
@@ -191,6 +193,9 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
 
     if (gameState.stage === 'results') {
         dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData({results:gameState.gameResults, order:gameState.gameResultsOrder}), presences);
+        if (gameState.lastRevealResultData) {
+            dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, gameState.lastRevealResultData);
+        }
     }
     
     return {
@@ -362,6 +367,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 // wrong stage
                 continue;
             }
+            gameState.lastRevealResultData = message.data;
             dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, message.data);
         } else if (message.opCode === OpCode.NEW_ROUND) {
             if (!gameState.host || gameState.host !== message.sender.userId) {
@@ -381,6 +387,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             gameState.nextStepAt = NaN;
             gameState.playersReadyForNextStep = {};
             gameState.playerToResult = {};
+            gameState.lastRevealResultData = undefined;
             gameState.stage = 'gettingReady';
             dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData));
         }
