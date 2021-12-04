@@ -394,7 +394,8 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             !isNaN(gameState.currentStep) &&
             !isNaN(gameState.nextStepAt) &&
             (time >= gameState.nextStepAt ||
-                Object.keys(gameState.playersReadyForNextStep).length >= Object.keys(gameState.playerToResult).length)
+                // don't wait for players that left the match
+                Object.keys(gameState.playerToResult).every(userId => gameState.playersReadyForNextStep[userId] || !gameState.presences[userId]))
         ) {
             if (gameState.currentStep === gameState.lastStep) {
                 logger.debug('Game results');
