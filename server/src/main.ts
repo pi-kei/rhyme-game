@@ -60,6 +60,7 @@ interface GameState {
     nextStepAt: number,
     playersReadyForNextStep: {[userId: string]: true},
     playerToResult: {[userId: string]: string[]},
+    lastLinesByPlayer: {[userId: string]: string[]},
     lastRevealResultData: any
 }
 
@@ -122,6 +123,7 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
         nextStepAt: NaN,
         playersReadyForNextStep: {},
         playerToResult: {},
+        lastLinesByPlayer: {},
         lastRevealResultData: undefined
     };
 
@@ -180,8 +182,6 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
         gameState.playersJoinOrder = gameState.playersJoinOrder.concat(presence.userId);
     }
 
-    // TODO: send update to a new player
-
     if (gameState.host) {
         logger.debug('Sending HOST_CHANGED');
         dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData), presences);
@@ -191,7 +191,22 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
 
     dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData), presences);
 
-    if (gameState.stage === 'results') {
+    if (gameState.stage === 'inProgress') {
+        const timeLeft = gameState.nextStepAt - Date.now();
+        if (timeLeft > 1000) {
+            for (const presence of presences) {
+                if (gameState.playerToResult[presence.userId]) {
+                    // active player
+                    const input = gameState.currentStep > 0 ? gameState.gameResults[gameState.playerToResult[presence.userId][gameState.currentStep - 1]][gameState.currentStep - 1].input : undefined;
+                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:timeLeft,lines:gameState.lastLinesByPlayer[presence.userId],input,active:true}), [presence]);
+                } else {
+                    // spectator
+                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:timeLeft,active:false}), [presence]);
+                }
+            }
+            dispatcher.broadcastMessage(OpCode.READY_UPDATE, encodeMessageData({ready:Object.keys(gameState.playersReadyForNextStep).length, total:Object.keys(gameState.gameResults).length}), presences);
+        }
+    } else if (gameState.stage === 'results') {
         dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData({results:gameState.gameResults, order:gameState.gameResultsOrder}), presences);
         if (gameState.lastRevealResultData) {
             dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, gameState.lastRevealResultData, presences);
@@ -387,6 +402,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             gameState.nextStepAt = NaN;
             gameState.playersReadyForNextStep = {};
             gameState.playerToResult = {};
+            gameState.lastLinesByPlayer = {};
             gameState.lastRevealResultData = undefined;
             gameState.stage = 'gettingReady';
             dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData));
@@ -454,6 +470,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                             
                             return hiddenLetters.slice(0, position) + line.input.slice(position);
                         });
+                    gameState.lastLinesByPlayer[userId] = lines;
                     dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:gameState.settings.stepDuration,lines,active:true}), [gameState.presences[userId]]);
                 }
             }

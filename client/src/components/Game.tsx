@@ -834,7 +834,7 @@ function GameSteps({settings, stepData, readyState, onInput}: GameStepsProps) {
 
     useEffect(() => {
         setSent(false);
-        setInput('');
+        setInput(stepData?.input ?? '');
         if (stepData) {
             timerReset(stepData.timeout);
         }
