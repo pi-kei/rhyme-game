@@ -337,8 +337,11 @@ function Game() {
         nakamaHelperRef.current.sendMatchMessage(OpCode.START_GAME, {});
     };
 
-    const onInput = (step: number, input: string, ready: boolean) => {
-        nakamaHelperRef.current.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input: input.trim().replaceAll(/\s{2,}/gu, ' '), ready});
+    const onInput = (step: number, rawInput: string, ready: boolean) => {
+        const input = rawInput.trim().replaceAll(/\s{2,}/gu, ' ');
+        if (input) {
+            nakamaHelperRef.current.sendMatchMessage(OpCode.PLAYER_INPUT, {step, input, ready});
+        }
     };
 
     const onRevealResult = (poetry: number, poetryLine: number) => {
