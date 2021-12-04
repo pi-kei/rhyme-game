@@ -194,7 +194,7 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
     if (gameState.stage === 'results') {
         dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData({results:gameState.gameResults, order:gameState.gameResultsOrder}), presences);
         if (gameState.lastRevealResultData) {
-            dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, gameState.lastRevealResultData);
+            dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, gameState.lastRevealResultData, presences);
         }
     }
     
