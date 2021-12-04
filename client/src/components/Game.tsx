@@ -31,30 +31,14 @@ interface PlayerInfo {
     left: boolean
 }
 
-function toPlayerInfo(users: nakamajs.User[]): PlayerInfo[] {
-    return users.map((user: nakamajs.User) => ({
-        id: user.id,
-        name: user.display_name,
-        avatar: user.avatar_url,
-        left: false
-    } as PlayerInfo));
-}
-
-function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[], markOnly?: boolean) {
-    if (markOnly) {
-        return players.map(
-            (player: PlayerInfo) => {
-                player.left = leaves.findIndex(
-                    (p: nakamajs.Presence) => p.user_id === player.id
-                ) !== -1;
-                return player;
-            }
-        );
-    }
-    return players.filter(
-        (player: PlayerInfo) => !player.left && leaves.findIndex(
-            (p: nakamajs.Presence) => p.user_id === player.id
-        ) === -1
+function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[]) {
+    return players.map(
+        (player: PlayerInfo) => {
+            player.left = leaves.findIndex(
+                (p: nakamajs.Presence) => p.user_id === player.id
+            ) !== -1;
+            return player;
+        }
     );
 }
 
@@ -194,11 +178,31 @@ function Game() {
 
     const handlePresenceUpdate = (joins?: nakamajs.Presence[], leaves?: nakamajs.Presence[]) => {
         if (leaves && leaves.length && !(joins && joins.length)) {
-            setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)));
+            setPlayers((prevPlayers: PlayerInfo[]) => filterLeft(prevPlayers, leaves));
         } else if (joins && joins.length) {
             nakamaHelperRef.current.getUsers(joins.map((p: nakamajs.Presence) => p.user_id))
                 .then((users: nakamajs.User[]) => {
-                    setPlayers((prevPlayers: PlayerInfo[]) => (leaves && leaves.length ? filterLeft(prevPlayers, leaves, ['game', 'results'].includes(currentState)) : prevPlayers).concat(toPlayerInfo(users)));
+                    setPlayers((prevPlayers: PlayerInfo[]) => {
+                        const newPlayers: PlayerInfo[] = (leaves && leaves.length ? filterLeft(prevPlayers, leaves) : prevPlayers.concat());
+                        for (const user of users) {
+                            const index = newPlayers.findIndex(p => p.id === user.id);
+                            if (index >= 0) {
+                                const p = newPlayers.splice(index, 1)[0];
+                                p.name = user.display_name!;
+                                p.avatar = user.avatar_url!;
+                                p.left = false;
+                                newPlayers.push(p);
+                            } else {
+                                newPlayers.push({
+                                    id: user.id!,
+                                    name: user.display_name!,
+                                    avatar: user.avatar_url!,
+                                    left: false
+                                });
+                            }
+                        }
+                        return newPlayers;
+                    });
                 })
                 .catch(handleError);
         }
@@ -241,7 +245,6 @@ function Game() {
                 } else if (messageData.stage === 'gettingReady') {
                     setCurrentState('lobby');
                     setResultsData(undefined);
-                    setPlayers(prevPlayers => filterLeft(prevPlayers, [], false));
                 }
                 playSound('stage');
             }
@@ -270,13 +273,15 @@ function Game() {
         console.log("onMatchRejoined", match);
 
         const presences = match.presences;
-        const joins = presences.filter(presence => !players.some(player => player.id === presence.user_id));
-        const leaves = players.filter(player => !presences.some(presence => player.id === presence.user_id)).map(player => ({
+        const joins = presences;
+        const leaves = players.map(player => ({
             user_id: player.id,
             session_id: '', // don't care about this value
             username: '', // don't care about this value
             node: '', // don't care about this value
         }) as nakamajs.Presence);
+
+        console.log('onMatchRejoined', joins, leaves);
         
         handlePresenceUpdate(joins, leaves);
     };
@@ -330,7 +335,7 @@ function Game() {
     };
 
     const onStart = () => {
-        if (players.length < 2) {
+        if (players.reduce((prevCount, player) => prevCount + (player.left ? 0 : 1), 0) < 2) {
             appendMessage(t('startWarningHeader'), t('startWarningContent'), 'warning');
             return;
         }
@@ -614,6 +619,9 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
             turnOnTts: data.checked
         });
     };
+    const playersCount = useMemo(() => {
+        return players.reduce((prevCount, player) => prevCount + (player.left ? 0 : 1), 0);
+    }, [players]);
     return (
         <Container>
             <Grid padded>
@@ -631,9 +639,9 @@ function Lobby({players, hostId, selfId, settings, onKick, onSettingsUpdate, onB
             </Grid>
             <Grid columns={2} divided padded stackable>
                 <Grid.Column width={5}>
-                        <div>{t('gamePlayersCountLabel')}: {players.length} / {settings && settings.maxPlayers}</div>
+                        <div>{t('gamePlayersCountLabel')}: {playersCount} / {settings && settings.maxPlayers}</div>
                         {players.map((p: PlayerInfo) => (
-                            <div key={p.id} className='ui-player-list-item'>
+                            <div key={p.id} className='ui-player-list-item' style={p.left ? {display:'none'} : undefined}>
                                 <Image avatar src={p.avatar} />
                                 <span className='ui-player-list-item-name'>{p.name}</span>
                                 {(p.id === selfId || p.id === hostId) && (
