@@ -340,7 +340,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 // broken message data
                 continue;
             }
-            if (gameState.currentStep !== 0 && gameState.currentStep !== data.step) {
+            if (gameState.currentStep === 0 || gameState.currentStep !== data.step) {
                 // wrong step
                 continue;
             }
