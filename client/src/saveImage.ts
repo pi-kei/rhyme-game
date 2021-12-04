@@ -27,7 +27,7 @@ export default async function saveImage(poetry: any): Promise<HTMLCanvasElement>
         y += height + 40;
     }
 
-    ctx.fillText(window.location.hostname, canvas.width - ctx.measureText(window.location.hostname).width - 20, y + 2);
+    ctx.fillText(window.location.hostname, (canvas.width - ctx.measureText(window.location.hostname).width) * 0.5, y + 2);
 
     y += 2 + 10;
 
