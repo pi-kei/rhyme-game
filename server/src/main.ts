@@ -322,11 +322,8 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             gameState.currentStep = 0;
             gameState.nextStepAt = time + zeroStepDuration;
             genRoundSteps(gameState);
-            for (const userId of Object.keys(gameState.playerToResult)) {
-                if (!gameState.presences[userId]) {
-                    continue;
-                }
-                dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:zeroStepDuration}), [gameState.presences[userId]]);
+            for (const userId of Object.keys(gameState.presences)) {
+                dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:zeroStepDuration,active:Boolean(gameState.playerToResult[userId])}), [gameState.presences[userId]]);
             }
         } else if (message.opCode === OpCode.PLAYER_INPUT) {
             if (gameState.stage !== 'inProgress') {
@@ -408,8 +405,9 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 gameState.playersReadyForNextStep = {};
                 sendReadyUpdate = true;
 
-                for (const userId of Object.keys(gameState.playerToResult)) {
-                    if (!gameState.presences[userId]) {
+                for (const userId of Object.keys(gameState.presences)) {
+                    if (!gameState.playerToResult[userId]) {
+                        dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:gameState.settings.stepDuration,active:false}), [gameState.presences[userId]]);
                         continue;
                     }
                     const resultId = gameState.playerToResult[userId][gameState.currentStep - 1];
@@ -449,14 +447,13 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                             
                             return hiddenLetters.slice(0, position) + line.input.slice(position);
                         });
-                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:gameState.settings.stepDuration,lines}), [gameState.presences[userId]]);
+                    dispatcher.broadcastMessage(OpCode.NEXT_STEP, encodeMessageData({step:gameState.currentStep,last:gameState.lastStep,timeout:gameState.settings.stepDuration,lines,active:true}), [gameState.presences[userId]]);
                 }
             }
         }
 
         if (sendReadyUpdate) {
-            const activePresences = Object.keys(gameState.playerToResult).map(userId => gameState.presences[userId]).filter(presence => Boolean(presence));
-            dispatcher.broadcastMessage(OpCode.READY_UPDATE, encodeMessageData({ready:Object.keys(gameState.playersReadyForNextStep).length, total:Object.keys(gameState.gameResults).length}), activePresences);
+            dispatcher.broadcastMessage(OpCode.READY_UPDATE, encodeMessageData({ready:Object.keys(gameState.playersReadyForNextStep).length, total:Object.keys(gameState.gameResults).length}));
         }
     }
 

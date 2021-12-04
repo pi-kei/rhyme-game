@@ -874,7 +874,7 @@ function GameSteps({settings, stepData, readyState, onInput}: GameStepsProps) {
                         <Progress total={timerState.duration} value={timerState.passed} size='tiny' />
                     </Grid.Column>
                 </Grid.Row>
-                {stepData && stepData.step === 0 && (
+                {stepData && stepData.step === 0 && stepData.active && (
                     <Grid.Row textAlign="center">
                         <Grid.Column>
                             <Transition animation="tada" duration={1000} transitionOnMount={true}>
@@ -894,7 +894,7 @@ function GameSteps({settings, stepData, readyState, onInput}: GameStepsProps) {
                         </Grid.Column>
                     </Grid.Row>
                 )}
-                {stepData && stepData.step > 0 && (
+                {stepData && stepData.step > 0 && stepData.active && (
                     <Grid.Row columns={2}>
                         <Grid.Column width={13} >
                             <Input
