@@ -5,7 +5,7 @@ RUN yarn install
 ENV NODE_ENV production
 RUN yarn build
 
-FROM heroiclabs/nakama:3.8.0
+FROM heroiclabs/nakama:3.10.0
 COPY --from=builder /home/node/app/data/modules /nakama/data/modules
 EXPOSE 7349 7350 7351
 ARG DATABASE_URL=${DATABASE_URL}

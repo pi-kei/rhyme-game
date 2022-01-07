@@ -10,6 +10,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(helmet({
   contentSecurityPolicy: {
+    useDefaults: false,
     directives: {
       'child-src': ["'none'"],
       'connect-src': [

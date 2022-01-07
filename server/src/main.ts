@@ -251,7 +251,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 // wrong stage
                 continue;
             }
-            const data = decodeMessageData<KickPlayerMessageData>(message.data);
+            const data = decodeMessageData<KickPlayerMessageData>(nk.binaryToString(message.data));
             if (!data || typeof data !== 'object' || !data.userId || typeof data.userId !== 'string') {
                 // broken message data
                 continue;
@@ -282,7 +282,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 revealLastWordInLines: boolean,
                 revealAtMostPercent: number,
                 stepDuration: number,
-                turnOnTts: boolean}>(message.data);
+                turnOnTts: boolean}>(nk.binaryToString(message.data));
             if (
                 !data ||
                 typeof data !== 'object' ||
@@ -350,7 +350,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 // wrong stage
                 continue;
             }
-            const data = decodeMessageData<{step: number, input: string, ready: boolean}>(message.data);
+            const data = decodeMessageData<{step: number, input: string, ready: boolean}>(nk.binaryToString(message.data));
             if (!data || typeof data !== 'object' || !data.input || typeof data.input !== 'string') {
                 // broken message data
                 continue;

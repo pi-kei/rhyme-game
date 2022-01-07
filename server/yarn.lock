@@ -4,9 +4,9 @@
 
 "nakama-runtime@https://github.com/heroiclabs/nakama-common":
   version "1.10.0"
-  resolved "https://github.com/heroiclabs/nakama-common#f2c0b596a84c40eff34116c3f35f9eff1acc7bb2"
+  resolved "https://github.com/heroiclabs/nakama-common#9ba31bb1f195f9cf587a5c6a7e966b8bf9815074"
 
-typescript@^4.3.2:
-  version "4.3.2"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.3.2.tgz#399ab18aac45802d6f2498de5054fcbbe716a805"
-  integrity sha512-zZ4hShnmnoVnAHpVHWpTcxdv7dWP60S2FsydQLV8V5PbS3FifjWFFRiHSWpDJahly88PRyV5teTSLoq4eG7mKw==
+typescript@^4.5.4:
+  version "4.5.4"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.5.4.tgz#a17d3a0263bf5c8723b9c52f43c5084edf13c2e8"
+  integrity sha512-VgYs2A2QIRuGphtzFV7aQJduJ2gyfTljngLzjpfW9FoYZF6xuw1W0vW9ghCKLfcWrCFxK81CSGRAvS1pn4fIUg==
