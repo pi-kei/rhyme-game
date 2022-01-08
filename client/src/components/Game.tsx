@@ -44,8 +44,8 @@ function filterLeft(players: PlayerInfo[], leaves: nakamajs.Presence[]) {
 
 const nakamaHelper: NakamaHelper = new NakamaHelper(
     process.env.REACT_APP_NAKAMA_SERVER_KEY,
-    process.env.REACT_APP_NAKAMA_HOST,
-    process.env.REACT_APP_NAKAMA_PORT,
+    process.env.REACT_APP_NAKAMA_HOST ?? '127.0.0.1',
+    process.env.REACT_APP_NAKAMA_PORT ?? '7350',
     process.env.REACT_APP_NAKAMA_USE_SSL === "true"
 );
 const speechHelper = new SpeechHelper();
@@ -101,7 +101,7 @@ function Game() {
     const nakamaHelperRef = useRef(nakamaHelper);
     const { playSound } = useSoundsHelper(soundsHelper);
 
-    const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'|'results'>('login');
+    const [currentState, setCurrentState] = useState<'login'|'lobby'|'game'|'results'|'serverRestarting'>('login');
     const [players, setPlayers] = useState<PlayerInfo[]>([]);
     const [hostId, setHostId] = useState<string>('');
     const [settings, setSettings] = useState<any>();
@@ -258,7 +258,41 @@ function Game() {
             playSound('result');
         } else if (matchData.op_code === OpCode.READY_UPDATE) {
             setReadyState(matchData.data);
+        } else if (matchData.op_code === OpCode.TERMINATING) {
+            const messageData: {creatorId: string, graceSeconds: number} = matchData.data;
+            onTerminating(messageData.creatorId, messageData.graceSeconds);
         }
+    };
+
+    const onNotification = (notification: nakamajs.Notification) => {
+        if (notification.subject === 'match_restored' && notification.code === 1) {
+            if (currentState === 'serverRestarting') {
+                nakamaHelperRef.current.joinOrCreateMatch((notification.content as {matchId: string}).matchId).then(onMatchRejoined);
+            }
+        }
+    };
+
+    const onTerminating = (creatorId: string, graceSeconds: number) => {
+        setCurrentState('serverRestarting');
+        setStepData(undefined);
+        setResultsData(undefined);
+        appendMessage('Server restarting', `Game will be restored. Please wait about ${graceSeconds} seconds...`, 'warning', graceSeconds * 1000);
+        const isCreator = creatorId === nakamaHelperRef.current.selfId;
+        const oldMatchId = nakamaHelperRef.current.currentMatchId;
+        nakamaHelperRef.current.terminate();
+        nakamaHelperRef.current.waitRestart(graceSeconds)
+            .then(() => nakamaHelperRef.current.auth(nakamaHelperRef.current.clientCustomId || ''))
+            .then(() => {
+                if (isCreator && oldMatchId) {
+                    return nakamaHelperRef.current.joinOrCreateMatch(undefined, {restoreFrom: oldMatchId}).then(onMatchRejoined);
+                } else {
+                    return Promise.resolve();
+                }
+            }).catch((error) => {
+                onDisconnect();
+                appendMessage('Error', 'Failed to restore game', 'error');
+                console.error(error);
+            });
     };
 
     const onMatchJoined = (match: nakamajs.Match) => {
@@ -271,6 +305,7 @@ function Game() {
 
     const onMatchRejoined = (match: nakamajs.Match) => {
         console.log("onMatchRejoined", match);
+        storage.setItem('matchId', match.match_id);
 
         const presences = match.presences;
         const joins = presences;
@@ -363,6 +398,7 @@ function Game() {
         nakamaHelperRef.current.onError = onError;
         nakamaHelperRef.current.onMatchPresence = onMatchPresence;
         nakamaHelperRef.current.onMatchData = onMatchData;
+        nakamaHelperRef.current.onNotification = onNotification;
         nakamaHelperRef.current.onTokensUpdate = onTokensUpdate;
 
         return () => {
@@ -371,6 +407,7 @@ function Game() {
             nakamaHelperRef.current.onError = undefined;
             nakamaHelperRef.current.onMatchPresence = undefined;
             nakamaHelperRef.current.onMatchData = undefined;
+            nakamaHelperRef.current.onNotification = undefined;
             nakamaHelperRef.current.onTokensUpdate = undefined;
         };
     });

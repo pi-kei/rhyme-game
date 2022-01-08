@@ -10,6 +10,7 @@ enum OpCode {
     NEXT_STEP = 5,
     RESULTS = 8,
     READY_UPDATE = 11,
+    TERMINATING = 12,
     
     // initiated by players
     KICK_PLAYER = 2, // initiated by host player on gettig started stage

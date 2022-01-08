@@ -18,6 +18,7 @@ export default class NakamaHelper {
     private onErrorHandler: ((event: Event) => void) | undefined;
     private onMatchPresenceHandler: ((event: nakamajs.MatchPresenceEvent) => void) | undefined;
     private onMatchDataHandler: ((event: nakamajs.MatchData) => void) | undefined;
+    private onNotificationHandler: ((notification: nakamajs.Notification) => void) | undefined;
     private onTokensUpdateHandler: ((token?: string, refreshToken?: string) => void) | undefined;
 
     constructor(serverKey: string | undefined, host: string | undefined, port: string | undefined, useSSL: boolean | undefined) {
@@ -25,6 +26,10 @@ export default class NakamaHelper {
         this.host = host;
         this.port = port;
         this.useSSL = useSSL;
+    }
+
+    get clientCustomId() {
+        return this.customId;
     }
 
     get selfId() {
@@ -55,6 +60,10 @@ export default class NakamaHelper {
         this.onMatchDataHandler = value;
     }
 
+    set onNotification(value: ((notification: nakamajs.Notification) => void) | undefined) {
+        this.onNotificationHandler = value;
+    }
+
     set onTokensUpdate(value: ((token?: string, refreshToken?: string) => void) | undefined) {
         this.onTokensUpdateHandler = value;
     }
@@ -68,6 +77,7 @@ export default class NakamaHelper {
                 this.socket.onerror = () => undefined;
                 this.socket.onmatchpresence = () => undefined;
                 this.socket.onmatchdata = () => undefined;
+                this.socket.onnotification = () => undefined;
                 this.socket.disconnect(false);
                 this.socket = undefined;
             }
@@ -98,6 +108,33 @@ export default class NakamaHelper {
         }
     }
 
+    async waitRestart(seconds: number): Promise<void> {
+        await (new Promise(resolve => {
+            setTimeout(resolve, seconds * 1000);
+        }));
+        await retry(async () => {
+            const response = await fetch(`${this.useSSL ? 'https://' : 'http://'}${this.host}:${this.port}/`);
+            if (!response.ok) {
+                throw new Error('Not ready');
+            }
+        }, {maxAttempts: 120, getTimeout: () => 1000});
+    }
+
+    terminate() {
+        this.matchId = undefined;
+        if (this.socket) {
+            this.socket.ondisconnect = () => undefined;
+            this.socket.onerror = () => undefined;
+            this.socket.onmatchpresence = () => undefined;
+            this.socket.onmatchdata = () => undefined;
+            this.socket.onnotification = () => undefined;
+            this.socket.disconnect(false);
+            this.socket = undefined;
+        }
+        this.session = undefined;
+        this.client = undefined;
+    }
+
     async updateAccount(userName: string, avatar: string): Promise<boolean> {
         await this.reauth();
         const result = await retry<boolean>(() => this.client!.updateAccount(this.session!, {
@@ -124,7 +161,7 @@ export default class NakamaHelper {
             matchId = (rpcResponse.payload as {match_id: string}).match_id;
         }
 
-        const match = await this.socket!.joinMatch(matchId);
+        const match = await retry(() => this.socket!.joinMatch(matchId!));
 
         this.matchId = match.match_id;
 
@@ -175,6 +212,7 @@ export default class NakamaHelper {
                 socket.onerror = () => undefined;
                 socket.onmatchpresence = () => undefined;
                 socket.onmatchdata = () => undefined;
+                socket.onnotification = () => undefined;
                 if (this.socket !== socket) {
                     return;
                 }
@@ -211,11 +249,17 @@ export default class NakamaHelper {
                     this.onMatchDataHandler(event);
                 }
             };
+            socket.onnotification = (notification: nakamajs.Notification) => {
+                if (this.onNotificationHandler) {
+                    this.onNotificationHandler(notification);
+                }
+            };
             if (this.socket) {
                 this.socket.ondisconnect = () => undefined;
                 this.socket.onerror = () => undefined;
                 this.socket.onmatchpresence = () => undefined;
                 this.socket.onmatchdata = () => undefined;
+                this.socket.onnotification = () => undefined;
                 this.socket.disconnect(false);
                 this.socket = undefined;
             }

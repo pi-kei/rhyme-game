@@ -17,8 +17,8 @@ let InitModule: nkruntime.InitModule = function(ctx: nkruntime.Context, logger: 
 };
 
 let createMatchRpc: nkruntime.RpcFunction = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, payload: string): string | void {
-    const { lang } = JSON.parse(payload);
-    const matchId = nk.matchCreate(moduleName, { lang });
+    const params = JSON.parse(payload);
+    const matchId = nk.matchCreate(moduleName, {...params, creatorId: ctx.userId});
 
     logger.debug('Created match with ID: %s', matchId);
 
@@ -49,6 +49,7 @@ interface GameState {
     presences: {[userId: string]: nkruntime.Presence},
     host: string | undefined,
     playersJoinOrder: string[],
+    waitPlayerReconnectUntil: {[userId: string]: number},
     kickedPlayerIds: {[userId: string]: true},
     gameResults: {[userId: string]: {
         author: string, // user id
@@ -61,7 +62,8 @@ interface GameState {
     playersReadyForNextStep: {[userId: string]: true},
     playerToResult: {[userId: string]: string[]},
     lastLinesByPlayer: {[userId: string]: string[]},
-    lastRevealResultData: any
+    lastRevealResultData: any,
+    terminating: boolean
 }
 
 function genRoundSteps(gameState: GameState) {
@@ -101,6 +103,64 @@ function genRoundSteps(gameState: GameState) {
 let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, params: {[key: string]: string}): {state: nkruntime.MatchState, tickRate: number, label: string} {
     logger.debug('matchInit called');
 
+    const tickRate = 2;
+    const label = '';
+
+    if (params.restoreFrom) {
+        const list = nk.storageRead([{
+            collection: 'saved_matches',
+            key: params.restoreFrom,
+            userId: '00000000-0000-0000-0000-000000000000'
+        }]);
+        if (list.length !== 1) {
+            throw new Error('Match cannot be restored');
+        }
+        nk.storageDelete([{
+            collection: 'saved_matches',
+            key: params.restoreFrom,
+            userId: '00000000-0000-0000-0000-000000000000'
+        }]);
+        const savedMatch = list[0].value.state;
+        const time = Date.now();
+        const timeDiff = time - list[0].value.serverTime;
+        const waitPlayerReconnectUntil: {[userId: string]: number} = {};
+        for (const userId of Object.keys(savedMatch.waitPlayerReconnectUntil)) {
+            waitPlayerReconnectUntil[userId] = savedMatch.waitPlayerReconnectUntil[userId] + timeDiff;
+        }
+        for (const userId of Object.keys(savedMatch.presences)) {
+            waitPlayerReconnectUntil[userId] = time + 5000;
+        }
+        const restoredState: GameState = {
+            stage: savedMatch.stage,
+            settings: savedMatch.settings,
+            presences: {},
+            host: undefined,
+            playersJoinOrder: savedMatch.playersJoinOrder,
+            waitPlayerReconnectUntil,
+            kickedPlayerIds: savedMatch.kickedPlayerIds,
+            gameResults: savedMatch.gameResults,
+            gameResultsOrder: savedMatch.gameResultsOrder,
+            lastStep: savedMatch.lastStep,
+            currentStep: savedMatch.currentStep,
+            nextStepAt: savedMatch.nextStepAt >= 0 ? savedMatch.nextStepAt + timeDiff : savedMatch.nextStepAt,
+            playersReadyForNextStep: savedMatch.playersReadyForNextStep,
+            playerToResult: savedMatch.playerToResult,
+            lastLinesByPlayer: savedMatch.lastLinesByPlayer,
+            lastRevealResultData: savedMatch.lastRevealResultData,
+            terminating: false
+        };
+        for (const userId of Object.keys(savedMatch.presences)) {
+            if (userId !== params.creatorId) {
+                nk.notificationSend(userId, 'match_restored', {matchId: ctx.matchId, oldMatchId: params.restoreFrom}, 1, undefined, true);
+            }
+        }
+        return {
+            state: restoredState,
+            tickRate,
+            label
+        };
+    }
+
     const initialState: GameState = {
         stage: 'gettingReady',
         settings: {
@@ -115,22 +175,24 @@ let matchInit: nkruntime.MatchInitFunction = function (ctx: nkruntime.Context, l
         presences: {},
         host: undefined,
         playersJoinOrder: [],
+        waitPlayerReconnectUntil: {},
         kickedPlayerIds: {},
         gameResults: {},
         gameResultsOrder: [],
-        lastStep: NaN,
-        currentStep: NaN,
-        nextStepAt: NaN,
+        lastStep: -1,
+        currentStep: -1,
+        nextStepAt: -1,
         playersReadyForNextStep: {},
         playerToResult: {},
         lastLinesByPlayer: {},
-        lastRevealResultData: undefined
+        lastRevealResultData: undefined,
+        terminating: false
     };
 
     return {
         state: initialState,
-        tickRate: 2,
-        label: ''
+        tickRate,
+        label
     };
 };
 
@@ -139,6 +201,14 @@ let matchJoinAttempt: nkruntime.MatchJoinAttemptFunction = function (ctx: nkrunt
 
     const gameState: GameState = state as GameState;
     const playersCount: number = Object.keys(gameState.presences).length;
+
+    if (gameState.terminating) {
+        return {
+            state: gameState,
+            accept: false,
+            rejectMessage: 'match terminating'
+        };
+    }
 
     if (playersCount >= gameState.settings.maxPlayers) {
         return {
@@ -176,14 +246,20 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
 
     const gameState: GameState = state as GameState;
 
+    if (gameState.terminating) {
+        return null;
+    }
+
     for (const presence of presences) {
         gameState.presences[presence.userId] = presence;
-        // NOTE: mutable ways to append an element DID'T work (bug in goja?)
-        gameState.playersJoinOrder = gameState.playersJoinOrder.concat(presence.userId);
+        const playerIndex = gameState.playersJoinOrder.indexOf(presence.userId);
+        if (playerIndex < 0) {
+            // NOTE: mutable ways to append an element DID'T work (bug in goja?)
+            gameState.playersJoinOrder = gameState.playersJoinOrder.concat(presence.userId);
+        }
     }
 
     if (gameState.host) {
-        logger.debug('Sending HOST_CHANGED');
         dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData), presences);
     }
 
@@ -209,7 +285,7 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
     } else if (gameState.stage === 'results') {
         dispatcher.broadcastMessage(OpCode.RESULTS, encodeMessageData({results:gameState.gameResults, order:gameState.gameResultsOrder}), presences);
         if (gameState.lastRevealResultData) {
-            dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, gameState.lastRevealResultData, presences);
+            dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, encodeMessageData(gameState.lastRevealResultData), presences);
         }
     }
     
@@ -219,12 +295,12 @@ let matchJoin: nkruntime.MatchJoinFunction = function(ctx: nkruntime.Context, lo
 };
 
 let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, dispatcher: nkruntime.MatchDispatcher, tick: number, state: nkruntime.MatchState, messages: nkruntime.MatchMessage[]): {state: nkruntime.MatchState} | null {
-    if (messages.length) {
-        logger.debug('matchLoop called with messages: %d', messages.length);
-    }
-
     const gameState: GameState = state as GameState;
     const time: number = Date.now();
+
+    if (gameState.terminating) {
+        return null;
+    }
 
     if (!gameState.host) {
         for (const userId of gameState.playersJoinOrder) {
@@ -234,7 +310,6 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             }
         }
         if (gameState.host) {
-            logger.debug('Sending HOST_CHANGED');
             dispatcher.broadcastMessage(OpCode.HOST_CHANGED, encodeMessageData({ userId: gameState.host } as HostChangedMessageData));
         }
     }
@@ -382,7 +457,7 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
                 // wrong stage
                 continue;
             }
-            gameState.lastRevealResultData = message.data;
+            gameState.lastRevealResultData = decodeMessageData(nk.binaryToString(message.data));
             dispatcher.broadcastMessage(OpCode.REVEAL_RESULT, message.data);
         } else if (message.opCode === OpCode.NEW_ROUND) {
             if (!gameState.host || gameState.host !== message.sender.userId) {
@@ -397,13 +472,14 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
             gameState.kickedPlayerIds = {};
             gameState.gameResults = {};
             gameState.gameResultsOrder = [];
-            gameState.lastStep = NaN;
-            gameState.currentStep = NaN;
-            gameState.nextStepAt = NaN;
+            gameState.lastStep = -1;
+            gameState.currentStep = -1;
+            gameState.nextStepAt = -1;
             gameState.playersReadyForNextStep = {};
             gameState.playerToResult = {};
             gameState.lastLinesByPlayer = {};
             gameState.lastRevealResultData = undefined;
+            gameState.waitPlayerReconnectUntil = {};
             gameState.stage = 'gettingReady';
             dispatcher.broadcastMessage(OpCode.STAGE_CHANGED, encodeMessageData({stage:gameState.stage} as StageChangedMessageData));
         }
@@ -411,11 +487,11 @@ let matchLoop: nkruntime.MatchLoopFunction = function(ctx: nkruntime.Context, lo
 
     if (gameState.stage === 'inProgress') {
         if (
-            !isNaN(gameState.currentStep) &&
-            !isNaN(gameState.nextStepAt) &&
+            gameState.currentStep >= 0 &&
+            gameState.nextStepAt >= 0 &&
             (time >= gameState.nextStepAt ||
                 // don't wait for players that left the match
-                Object.keys(gameState.playerToResult).every(userId => gameState.playersReadyForNextStep[userId] || !gameState.presences[userId]))
+                Object.keys(gameState.playerToResult).every(userId => gameState.playersReadyForNextStep[userId] || (!gameState.presences[userId] && gameState.waitPlayerReconnectUntil[userId] < time)))
         ) {
             if (gameState.currentStep === gameState.lastStep) {
                 logger.debug('Game results');
@@ -490,13 +566,18 @@ let matchLeave: nkruntime.MatchLeaveFunction = function(ctx: nkruntime.Context, 
     logger.debug('matchLeave called');
 
     const gameState: GameState = state as GameState;
+    const time: number = Date.now();
+
+    if (gameState.terminating) {
+        return null;
+    }
 
     for (const presence of presences) {
         if (gameState.host && gameState.host === presence.userId) {
             gameState.host = undefined;
         }
         delete gameState.presences[presence.userId];
-        gameState.playersJoinOrder = gameState.playersJoinOrder.filter(userId => userId !== presence.userId);
+        gameState.waitPlayerReconnectUntil[presence.userId] = time + 5000;
     }
 
     return {
@@ -506,8 +587,35 @@ let matchLeave: nkruntime.MatchLeaveFunction = function(ctx: nkruntime.Context, 
 
 let matchTerminate: nkruntime.MatchTerminateFunction = function(ctx: nkruntime.Context, logger: nkruntime.Logger, nk: nkruntime.Nakama, dispatcher: nkruntime.MatchDispatcher, tick: number, state: nkruntime.MatchState, graceSeconds: number): {state: nkruntime.MatchState} | null {
     logger.debug('matchTerminate called');
+
+    const gameState: GameState = state as GameState;
+    const players = Object.keys(gameState.presences);
+
+    if (players.length === 0 || gameState.stage === 'gettingReady') {
+        // restore is not needed
+        return null;
+    }
+    
+    try {
+        nk.storageWrite([{
+            collection: 'saved_matches',
+            key: ctx.matchId,
+            userId: '00000000-0000-0000-0000-000000000000', // system owned object
+            permissionRead: 0, // clients can't read
+            permissionWrite: 0, // clients can't write
+            value: { state, serverTime: Date.now() }
+        }]);
+    } catch (error) {
+        logger.error(`Error while storing state on matchTerminate: ${(error && typeof error === 'object' && (error as {message?: string}).message)}`);
+        return null;
+    }
+
+    gameState.terminating = true;
+
+    dispatcher.broadcastMessage(OpCode.TERMINATING, encodeMessageData({creatorId: gameState.host || players[0], graceSeconds}));
+    
     return {
-        state
+        state: gameState
     };
 };
 

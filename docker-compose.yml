@@ -22,7 +22,7 @@ services:
       - "-ecx"
       - >
         /nakama/nakama migrate up --database.address postgres:localdb@rhyme-game-db:5432/nakama &&
-        exec /nakama/nakama --name nakama1 --database.address postgres:localdb@rhyme-game-db:5432/nakama --logger.level DEBUG --session.token_expiry_sec 60 --session.refresh_token_expiry_sec 3600 --runtime.js_entrypoint "index.js" --match.max_empty_sec 30
+        exec /nakama/nakama --name nakama1 --database.address postgres:localdb@rhyme-game-db:5432/nakama --logger.level DEBUG --session.token_expiry_sec 60 --session.refresh_token_expiry_sec 3600 --runtime.js_entrypoint "index.js" --match.max_empty_sec 30 --shutdown_grace_sec 30
     restart: always
     links:
       - "rhyme-game-db:db"
