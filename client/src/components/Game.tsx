@@ -14,9 +14,6 @@ import {
   Image,
   Input,
   InputOnChangeData,
-  InputProps,
-  List,
-  Popup,
   Progress,
   Ref,
   Segment,
@@ -24,7 +21,7 @@ import {
 } from "semantic-ui-react";
 import * as nakamajs from "@heroiclabs/nakama-js";
 import { nanoid } from "nanoid";
-import React, { SyntheticEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import { uniqueNamesGenerator, Config as NamesConfig, adjectives, colors, animals } from "unique-names-generator";
 //import multiavatar from '@multiavatar/multiavatar';
 import { useHistory, useParams } from "react-router";
@@ -34,7 +31,7 @@ import { useAlertContext } from "./Alert";
 import "./Game.css";
 import { useTranslation } from "react-i18next";
 import LangSelector from "./LangSelector";
-import { useCountdownTimer, CountdownTimerState } from "./Timer";
+import { useCountdownTimer } from "./Timer";
 import saveImage from "../saveImage";
 import SoundsHelper from "../soundsHelper";
 import SpeechHelper from "../speechHelper";
@@ -418,22 +415,23 @@ function Game() {
   };
 
   useEffect(() => {
-    nakamaHelperRef.current.onDisconnect = onDisconnect;
-    nakamaHelperRef.current.onReconnect = onReconnect;
-    nakamaHelperRef.current.onError = onError;
-    nakamaHelperRef.current.onMatchPresence = onMatchPresence;
-    nakamaHelperRef.current.onMatchData = onMatchData;
-    nakamaHelperRef.current.onNotification = onNotification;
-    nakamaHelperRef.current.onTokensUpdate = onTokensUpdate;
+    const nh = nakamaHelperRef.current;
+    nh.onDisconnect = onDisconnect;
+    nh.onReconnect = onReconnect;
+    nh.onError = onError;
+    nh.onMatchPresence = onMatchPresence;
+    nh.onMatchData = onMatchData;
+    nh.onNotification = onNotification;
+    nh.onTokensUpdate = onTokensUpdate;
 
     return () => {
-      nakamaHelperRef.current.onDisconnect = undefined;
-      nakamaHelperRef.current.onReconnect = undefined;
-      nakamaHelperRef.current.onError = undefined;
-      nakamaHelperRef.current.onMatchPresence = undefined;
-      nakamaHelperRef.current.onMatchData = undefined;
-      nakamaHelperRef.current.onNotification = undefined;
-      nakamaHelperRef.current.onTokensUpdate = undefined;
+      nh.onDisconnect = undefined;
+      nh.onReconnect = undefined;
+      nh.onError = undefined;
+      nh.onMatchPresence = undefined;
+      nh.onMatchData = undefined;
+      nh.onNotification = undefined;
+      nh.onTokensUpdate = undefined;
     };
   });
 
@@ -839,8 +837,8 @@ function GameSteps({ settings, stepData, readyState, onInput }: GameStepsProps) 
   const { isMuted, toggleMuted, playSound } = useSoundsHelper(soundsHelper);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputRegexp = useMemo(() => {
-    return new RegExp(`[^${settings && settings.lang === "ru" ? "а-яё" : "a-z"}\\p{Zs}\\p{P}]`, "giu");
-  }, [settings && settings.lang]);
+    return new RegExp(`[^${settings?.lang === "ru" ? "а-яё" : "a-z"}\\p{Zs}\\p{P}]`, "giu");
+  }, [settings?.lang]);
 
   const onButtonClick = () => {
     if (!input && !sent) {

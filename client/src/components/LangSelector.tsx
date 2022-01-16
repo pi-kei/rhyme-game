@@ -1,6 +1,6 @@
-import { SyntheticEvent, useState } from "react";
+import { SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Dropdown, DropdownProps, Modal } from "semantic-ui-react";
+import { Dropdown, DropdownProps } from "semantic-ui-react";
 
 const langOptions = [
   { key: "en", value: "en", text: "English" },
