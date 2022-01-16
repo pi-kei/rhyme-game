@@ -5,6 +5,8 @@
   "license": "MIT",
   "private": true,
   "devDependencies": {
+    "lint-staged": "^12.1.7",
+    "prettier": "2.5.1",
     "typescript": "^4.5.4"
   },
   "dependencies": {
@@ -12,5 +14,13 @@
   },
   "scripts": {
     "build": "npx tsc"
+  },
+  "prettier": {
+    "printWidth": 200
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write"
+    ]
   }
 }

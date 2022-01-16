@@ -10,5 +10,17 @@
     "dotenv": "^10.0.0",
     "express": "^4.17.2",
     "helmet": "^5.0.1"
+  },
+  "devDependencies": {
+    "lint-staged": "^12.1.7",
+    "prettier": "2.5.1"
+  },
+  "prettier": {
+    "printWidth": 200
+  },
+  "lint-staged": {
+    "*.js": [
+      "prettier --write"
+    ]
   }
 }

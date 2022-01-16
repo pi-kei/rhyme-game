@@ -1,0 +1,6 @@
+#!/bin/sh
+cd client && npx lint-staged
+cd ..
+cd server && npx lint-staged
+cd ..
+cd web-server && npx lint-staged

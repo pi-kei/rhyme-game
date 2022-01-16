@@ -1,2 +1,3 @@
 *.txt
 .ssh/
+.vscode/

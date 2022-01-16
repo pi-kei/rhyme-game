@@ -40,3 +40,18 @@ To run client locally:
 ```
 cd client && yarn install && yarn start
 ```
+
+For pre-commit git-hook to work you have to run this command from project directory `git config core.hooksPath .githooks`. 
+
+### VSCode
+
+Install extensions `dbaeumer.vscode-eslint` and `esbenp.prettier-vscode`.
+For prettier to work you have to have in `.vscode/settings.json`:
+
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.requireConfig": true
+}
+```
