@@ -1,8 +1,8 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Redirect } from 'react-router-dom';
-import { AlertProvider } from './Alert';
-import Game from './Game';
-import Welcome from './Welcome';
+import React from "react";
+import { BrowserRouter as Router, Route, Redirect } from "react-router-dom";
+import { AlertProvider } from "./Alert";
+import Game from "./Game";
+import Welcome from "./Welcome";
 
 function App() {
   return (
