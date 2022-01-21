@@ -1,8 +1,12 @@
 FROM node:14 AS builder
 WORKDIR /home/node/app
-COPY ./server .
-RUN yarn install
 ENV NODE_ENV production
+COPY ./server/package.json .
+COPY ./server/yarn.lock .
+COPY ./server/.yarnrc.yml .
+COPY ./server/.yarn ./.yarn
+RUN yarn install && yarn cache clean
+COPY ./server .
 RUN yarn build
 
 FROM heroiclabs/nakama:3.10.0

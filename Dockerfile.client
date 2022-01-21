@@ -1,8 +1,12 @@
 FROM node:14 AS client-builder
 WORKDIR /home/node/app
-COPY --chown=node:node ./client .
 ENV NODE_ENV production
-RUN yarn install
+COPY ./client/package.json .
+COPY ./client/yarn.lock .
+COPY ./client/.yarnrc.yml .
+COPY ./client/.yarn ./.yarn
+RUN yarn install && yarn cache clean
+COPY ./client .
 ARG REACT_APP_TITLE=${REACT_APP_TITLE}
 ARG REACT_APP_DESCRIPTION=${REACT_APP_DESCRIPTION}
 ARG REACT_APP_USE_SESSION_STORAGE=${REACT_APP_USE_SESSION_STORAGE}
@@ -19,19 +23,22 @@ ENV REACT_APP_NAKAMA_SERVER_KEY=${REACT_APP_NAKAMA_SERVER_KEY}
 ENV REACT_APP_NAKAMA_HOST=${REACT_APP_NAKAMA_HOST}
 ENV REACT_APP_NAKAMA_PORT=${REACT_APP_NAKAMA_PORT}
 ENV REACT_APP_NAKAMA_USE_SSL=${REACT_APP_NAKAMA_USE_SSL}
-RUN yarn update-browserlist && yarn build
+RUN yarn build
 
 FROM node:14
 WORKDIR /home/node/app
+ENV NODE_ENV production
+COPY ./web-server/package.json .
+COPY ./web-server/yarn.lock .
+COPY ./web-server/.yarnrc.yml .
+COPY ./web-server/.yarn ./.yarn
+RUN yarn install && yarn add pm2 && yarn cache clean
 COPY --chown=node:node ./web-server .
 COPY --from=client-builder --chown=node:node /home/node/app/build ./public
-ENV NODE_ENV production
-RUN yarn install
-RUN yarn global add pm2
-ENV PORT 9000
-EXPOSE 9000
 USER node
+EXPOSE 9000
+ENV PORT 9000
+ENV CLIENT_BUILD_PATH /home/node/app/public
 ARG FRAME_ANCESTORS=${FRAME_ANCESTORS}
 ENV FRAME_ANCESTORS=${FRAME_ANCESTORS}
-ENV CLIENT_BUILD_PATH /home/node/app/public
-CMD [ "pm2-runtime", "start", "./src/index.js" ]
+CMD [ "./node_modules/.bin/pm2-runtime", "start", "./src/index.js" ]
