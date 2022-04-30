@@ -1,4 +1,5 @@
 import { Howl, Howler, HowlOptions } from "howler";
+import { useRef, useState } from "react";
 
 class SoundsHelper {
   private soundsLib: { [key: string]: Howl };
@@ -26,6 +27,29 @@ class SoundsHelper {
     this.isMuted = value;
     Howler.mute(this.isMuted);
   }
+}
+
+export function useSoundsHelper(soundsHelper: SoundsHelper) {
+  const soundsHelperRef = useRef(soundsHelper);
+  const [isMuted, setIsMuted] = useState<boolean>(soundsHelperRef.current.muted);
+
+  const toggleMuted = () => {
+    setIsMuted((prevIsMuted) => {
+      const newIsMuted = !prevIsMuted;
+      soundsHelperRef.current.muted = newIsMuted;
+      return newIsMuted;
+    });
+  };
+
+  const playSound = (key: string) => {
+    soundsHelperRef.current.getSound(key).play();
+  };
+
+  return {
+    isMuted,
+    toggleMuted,
+    playSound,
+  };
 }
 
 export default SoundsHelper;
